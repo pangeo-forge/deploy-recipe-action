@@ -22,6 +22,10 @@ if __name__ == "__main__":
     print(f"{config = }")
 
     # TODO: dynamically install requirements.txt here
+    print(f"Listing local directory")
+    print(os.listdir())
+    print(f"Listing feedstock sub-directory")
+    print(os.listdir("feedstock"))
 
     with tempfile.NamedTemporaryFile("w", suffix=".json") as f:
         json.dump(config, f)
