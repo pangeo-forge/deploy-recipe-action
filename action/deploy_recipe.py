@@ -2,6 +2,7 @@ import json
 import os
 import subprocess
 import tempfile
+from urllib.parse import urljoin
 
 
 if __name__ == "__main__":
@@ -14,7 +15,7 @@ if __name__ == "__main__":
     config = os.environ["INPUT_PANGEO_FORGE_RUNNER_CONFIG"]
 
     # assemble https url for pangeo-forge-runner
-    repo = server_url + repository
+    repo = urljoin(server_url, repository)
 
     print(f"{repo = }")
     print(f"{ref = }")
@@ -38,9 +39,14 @@ if __name__ == "__main__":
         ]
         print("\nSubmitting job...")
         submit_proc = subprocess.run(cmd, capture_output=True)
-        assert submit_proc.returncode == 0
-        lastline = json.loads(submit_proc.stdout.decode().splitlines()[-1])
-        assert lastline["status"] == "submitted"
-        job_id = lastline["job_id"]
-        job_name = lastline["job_name"]
-        print(f"Job submitted with {job_id = }")
+        stdout = submit_proc.stdout.decode()
+        for line in stdout.splitlines():
+            print(line)
+
+        if submit_proc.returncode != 0:
+            raise ValueError("Job submission failed.")
+        else:
+            lastline = json.loads(stdout.splitlines()[-1])
+            job_id = lastline["job_id"]
+            job_name = lastline["job_name"]
+            print(f"Job submitted with {job_id = } and {job_name = }")
