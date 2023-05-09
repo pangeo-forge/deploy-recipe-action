@@ -5,9 +5,16 @@ import tempfile
 
 
 if __name__ == "__main__":
-    repo = os.environ["INPUT_REPO"]
-    ref = os.environ["INPUT_REF"]
+    # injected by github actions
+    repository = os.environ["GITHUB_REPOSITORY"]
+    server_url = os.environ["GITHUB_SERVER_URL"]
+    ref = os.environ["GITHUB_SHA"]
+
+    # user input
     config = os.environ["INPUT_PANGEO_FORGE_RUNNER_CONFIG"]
+
+    # assemble https url for pangeo-forge-runner
+    repo = server_url + repository
 
     print(f"{repo = }")
     print(f"{ref = }")
