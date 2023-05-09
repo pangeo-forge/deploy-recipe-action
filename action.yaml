@@ -1,0 +1,21 @@
+name: 'Deploy Recipe'
+description: '''
+Deploy a Pangeo Forge feedstock repository to the specified Apache Beam Runner.
+'''
+inputs:
+  repo:
+    description: 'The repository to deploy.'
+    required: true
+  ref:
+    description: 'Git ref to deploy specified repo from.'
+    required: true
+  pangeo_forge_runner_config:
+    description: 'JSON configuration for Pangeo Forge Runner CLI.'
+    required: true
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+  args:
+    - ${{ inputs.repo }}
+    - ${{ inputs.ref }}
+    - ${{ inputs.pangeo_forge_runner_config }}
