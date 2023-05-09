@@ -7,9 +7,9 @@ from urllib.parse import urljoin
 
 if __name__ == "__main__":
     # injected by github actions
-    repository = os.environ["GITHUB_REPOSITORY"]
+    repository = os.environ["GITHUB_REPOSITORY"]  # will this fail for external prs?
     server_url = os.environ["GITHUB_SERVER_URL"]
-    ref = os.environ["GITHUB_SHA"]
+    ref = os.environ["GITHUB_HEAD_REF"]
 
     # user input
     config = os.environ["INPUT_PANGEO_FORGE_RUNNER_CONFIG"]
