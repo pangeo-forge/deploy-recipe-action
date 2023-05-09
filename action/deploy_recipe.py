@@ -12,7 +12,7 @@ if __name__ == "__main__":
     ref = os.environ["GITHUB_HEAD_REF"]
 
     # user input
-    config = os.environ["INPUT_PANGEO_FORGE_RUNNER_CONFIG"]
+    config = json.loads(os.environ["INPUT_PANGEO_FORGE_RUNNER_CONFIG"])
 
     # assemble https url for pangeo-forge-runner
     repo = urljoin(server_url, repository)
