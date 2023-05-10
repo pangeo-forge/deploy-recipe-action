@@ -50,7 +50,8 @@ if __name__ == "__main__":
         # iterate through PRs on the repo. if the PR's head ref is the same
         # as our ``ref`` here, get the labels from that PR, and stop iteration.
         # FIXME: what if this is a push event, and not a pull_request event?
-        pulls_url = urljoin(api_url, repository, "/pulls")
+        pulls_url = "/".join([api_url, "repos", repository, "pulls"])
+        print(f"Fetching pulls from {pulls_url}")
         pulls = requests.get(pulls_url).json()
 
         for p in pulls:
