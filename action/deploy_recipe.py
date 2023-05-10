@@ -6,6 +6,9 @@ from urllib.parse import urljoin
 
 
 if __name__ == "__main__":
+    # set in Dockerfile
+    conda_env = os.environ["CONDA_ENV"]
+
     # injected by github actions
     repository = os.environ["GITHUB_REPOSITORY"]  # will this fail for external prs?
     server_url = os.environ["GITHUB_SERVER_URL"]
@@ -17,15 +20,26 @@ if __name__ == "__main__":
     # assemble https url for pangeo-forge-runner
     repo = urljoin(server_url, repository)
 
+    # log variables to stdout
+    print(f"{conda_env = }")
     print(f"{repo = }")
     print(f"{ref = }")
     print(f"{config = }")
 
-    # TODO: dynamically install requirements.txt here
-    print(f"Listing local directory")
-    print(os.listdir())
-    print(f"Listing feedstock sub-directory")
-    print(os.listdir("feedstock"))
+    # dynamically install extra deps if requested.
+    # because we've run the actions/checkout step before reaching this point, our current
+    # working directory is the root of the feedstock repo, so we can list feedstock repo
+    # contents directly on the filesystem here, without requesting it from github.
+    if "requirements.txt" in os.listdir("feedstock"):
+        with open("feedstock/requirements.txt") as f:
+            to_install = f.read().splitlines()
+
+        print(f"Installing extra packages {to_install}...")
+        install_cmd = f"mamba run -n {conda_env} pip install -U".split() + to_install
+        install_proc = subprocess.run(install_cmd, capture_output=True, text=True)
+        if install_proc.returncode != 0:
+            # installations failed, so record the error and bail early
+            ValueError(f"Installs failed with {install_proc.stderr = }")
 
     with tempfile.NamedTemporaryFile("w", suffix=".json") as f:
         json.dump(config, f)
