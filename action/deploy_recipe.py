@@ -4,6 +4,23 @@ import subprocess
 import tempfile
 from urllib.parse import urljoin
 
+import requests
+
+
+def deploy_recipe_cmd(cmd: list[str]):
+    submit_proc = subprocess.run(cmd, capture_output=True)
+    stdout = submit_proc.stdout.decode()
+    for line in stdout.splitlines():
+        print(line)
+
+    if submit_proc.returncode != 0:
+        raise ValueError("Job submission failed.")
+    else:
+        lastline = json.loads(stdout.splitlines()[-1])
+        job_id = lastline["job_id"]
+        job_name = lastline["job_name"]
+        print(f"Job submitted with {job_id = } and {job_name = }")
+
 
 if __name__ == "__main__":
     # set in Dockerfile
@@ -12,10 +29,12 @@ if __name__ == "__main__":
     # injected by github actions
     repository = os.environ["GITHUB_REPOSITORY"]  # will this fail for external prs?
     server_url = os.environ["GITHUB_SERVER_URL"]
+    api_url = os.environ["GITHUB_API_URL"]
     ref = os.environ["GITHUB_HEAD_REF"]
 
     # user input
     config = json.loads(os.environ["INPUT_PANGEO_FORGE_RUNNER_CONFIG"])
+    select_recipe_by_label = os.environ["SELECT_RECIPE_BY_LABEL"]
 
     # assemble https url for pangeo-forge-runner
     repo = urljoin(server_url, repository)
@@ -25,6 +44,19 @@ if __name__ == "__main__":
     print(f"{repo = }")
     print(f"{ref = }")
     print(f"{config = }")
+
+    labels = []
+    if select_recipe_by_label:
+        # iterate through PRs on the repo. if the PR's head ref is the same
+        # as our ``ref`` here, get the labels from that PR, and stop iteration.
+        # FIXME: what if this is a push event, and not a pull_request event?
+        pulls_url = urljoin(api_url, repository, "/pulls")
+        pulls = requests.get(pulls_url).json()
+
+        for p in pulls:
+            if p["head"]["ref"] == ref:
+                labels: list[str] = [label["name"] for label in p["labels"]]
+    recipe_ids = [l.replace("run:", "") for l in labels if l.startswith("run:")]
 
     # dynamically install extra deps if requested.
     # because we've run the actions/checkout step before reaching this point, our current
@@ -56,15 +88,8 @@ if __name__ == "__main__":
             f.name,
         ]
         print("\nSubmitting job...")
-        submit_proc = subprocess.run(cmd, capture_output=True)
-        stdout = submit_proc.stdout.decode()
-        for line in stdout.splitlines():
-            print(line)
-
-        if submit_proc.returncode != 0:
-            raise ValueError("Job submission failed.")
+        if recipe_ids:
+            for rid in recipe_ids:
+                deploy_recipe_cmd(cmd + [f"--Bake.recipe_id={rid}"])
         else:
-            lastline = json.loads(stdout.splitlines()[-1])
-            job_id = lastline["job_id"]
-            job_name = lastline["job_name"]
-            print(f"Job submitted with {job_id = } and {job_name = }")
+            deploy_recipe_cmd(cmd)
