@@ -7,7 +7,8 @@ inputs:
     description: '''
     If passed as `True`, use PR labels to selectively run recipe ids from feedstock.
     PR labels must use format ``run:{recipe_id}`` where ``recipe_id`` is a valid recipe_id
-    provided in the feedstock's meta.yaml.'''
+    provided in meta.yaml.
+    '''
     required: false
   pangeo_forge_runner_config:
     description: 'JSON configuration for Pangeo Forge Runner CLI.'
