@@ -1,0 +1,70 @@
+import json
+import os
+import subprocess
+import tempfile
+from urllib.parse import urljoin
+
+
+if __name__ == "__main__":
+    # set in Dockerfile
+    conda_env = os.environ["CONDA_ENV"]
+
+    # injected by github actions
+    repository = os.environ["GITHUB_REPOSITORY"]  # will this fail for external prs?
+    server_url = os.environ["GITHUB_SERVER_URL"]
+    ref = os.environ["GITHUB_HEAD_REF"]
+
+    # user input
+    config = json.loads(os.environ["INPUT_PANGEO_FORGE_RUNNER_CONFIG"])
+
+    # assemble https url for pangeo-forge-runner
+    repo = urljoin(server_url, repository)
+
+    # log variables to stdout
+    print(f"{conda_env = }")
+    print(f"{repo = }")
+    print(f"{ref = }")
+    print(f"{config = }")
+
+    # dynamically install extra deps if requested.
+    # because we've run the actions/checkout step before reaching this point, our current
+    # working directory is the root of the feedstock repo, so we can list feedstock repo
+    # contents directly on the filesystem here, without requesting it from github.
+    if "requirements.txt" in os.listdir("feedstock"):
+        with open("feedstock/requirements.txt") as f:
+            to_install = f.read().splitlines()
+
+        print(f"Installing extra packages {to_install}...")
+        install_cmd = f"mamba run -n {conda_env} pip install -U".split() + to_install
+        install_proc = subprocess.run(install_cmd, capture_output=True, text=True)
+        if install_proc.returncode != 0:
+            # installations failed, so record the error and bail early
+            ValueError(f"Installs failed with {install_proc.stderr = }")
+
+    with tempfile.NamedTemporaryFile("w", suffix=".json") as f:
+        json.dump(config, f)
+        f.flush()
+        cmd = [
+            "pangeo-forge-runner",
+            "bake",
+            "--repo",
+            repo,
+            "--ref",
+            ref,
+            "--json",
+            "-f",
+            f.name,
+        ]
+        print("\nSubmitting job...")
+        submit_proc = subprocess.run(cmd, capture_output=True)
+        stdout = submit_proc.stdout.decode()
+        for line in stdout.splitlines():
+            print(line)
+
+        if submit_proc.returncode != 0:
+            raise ValueError("Job submission failed.")
+        else:
+            lastline = json.loads(stdout.splitlines()[-1])
+            job_id = lastline["job_id"]
+            job_name = lastline["job_name"]
+            print(f"Job submitted with {job_id = } and {job_name = }")
