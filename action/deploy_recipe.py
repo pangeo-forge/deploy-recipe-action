@@ -34,7 +34,7 @@ if __name__ == "__main__":
 
     # user input
     config = json.loads(os.environ["INPUT_PANGEO_FORGE_RUNNER_CONFIG"])
-    select_recipe_by_label = os.environ["SELECT_RECIPE_BY_LABEL"]
+    select_recipe_by_label = os.environ["INPUT_SELECT_RECIPE_BY_LABEL"]
 
     # assemble https url for pangeo-forge-runner
     repo = urljoin(server_url, repository)
