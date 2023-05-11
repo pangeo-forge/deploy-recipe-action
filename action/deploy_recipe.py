@@ -90,6 +90,7 @@ if __name__ == "__main__":
             f.name,
         ]
         print("\nSubmitting job...")
+        print(f"{recipe_ids = }")
         if recipe_ids:
             for rid in recipe_ids:
                 jobname = f"{rid}{workflow_sha}"
