@@ -31,6 +31,7 @@ if __name__ == "__main__":
     server_url = os.environ["GITHUB_SERVER_URL"]
     api_url = os.environ["GITHUB_API_URL"]
     ref = os.environ["GITHUB_HEAD_REF"]
+    workflow_sha = os.environ["GITHUB_WORKFLOW_SHA"]
 
     # user input
     config = json.loads(os.environ["INPUT_PANGEO_FORGE_RUNNER_CONFIG"])
@@ -91,6 +92,6 @@ if __name__ == "__main__":
         print("\nSubmitting job...")
         if recipe_ids:
             for rid in recipe_ids:
-                deploy_recipe_cmd(cmd + [f"--Bake.recipe_id={rid}"])
+                deploy_recipe_cmd(cmd + [f"--Bake.recipe_id={rid}", f"--Bake.job_name={rid}{workflow_sha}"])
         else:
             deploy_recipe_cmd(cmd)
