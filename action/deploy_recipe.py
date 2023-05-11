@@ -8,6 +8,7 @@ import requests
 
 
 def deploy_recipe_cmd(cmd: list[str]):
+    print(f"Calling subprocess with {cmd = }")
     submit_proc = subprocess.run(cmd, capture_output=True)
     stdout = submit_proc.stdout.decode()
     for line in stdout.splitlines():
@@ -31,7 +32,9 @@ if __name__ == "__main__":
     server_url = os.environ["GITHUB_SERVER_URL"]
     api_url = os.environ["GITHUB_API_URL"]
     ref = os.environ["GITHUB_HEAD_REF"]
-    workflow_sha = os.environ["GITHUB_WORKFLOW_SHA"]
+    repository_id = os.environ["GITHUB_REPOSITORY_ID"]
+    run_id = os.environ["GITHUB_RUN_ID"]
+    run_number = os.environ["GITHUB_RUN_NUMBER"]
 
     # user input
     config = json.loads(os.environ["INPUT_PANGEO_FORGE_RUNNER_CONFIG"])
@@ -93,11 +96,19 @@ if __name__ == "__main__":
         print(f"{recipe_ids = }")
         if recipe_ids:
             for rid in recipe_ids:
-                jobname = f"{rid}{workflow_sha[0:4]}"
-                jobname = jobname.lower().replace('_','')
-                print(f"Submission {jobname = }")
-                extra_cmd = [f"--Bake.recipe_id={rid}", f"--Bake.job_name=job{jobname}"]
-                print(f"Running PGF runner with {extra_cmd = }")
+                if len(rid) > 44:
+                    print(f"Recipe id {rid} is > 44 chars, truncating to 44 chars.")
+                job_name = (
+                    f"{rid.lower().replace('_', '-')[:44]}-{repository_id}-{run_id}-{run_number}"
+                )
+                print(f"Submitting {job_name = }")
+                extra_cmd = [f"--Bake.recipe_id={rid}", f"--Bake.job_name={job_name}"]
                 deploy_recipe_cmd(cmd + extra_cmd)
         else:
+            # FIXME: pangeo-forge-runner handles job_name generation if we deploy everything
+            # currently, there is a pangeo-forge-runne bug that prevents creation of unique
+            # job_names when everything is deployed. apart from fixing that bug, we'd like the
+            # ability to provide our own job names, even if we deploy everything. this might mean
+            # passing a `--Bake.job_name_append` option to pangeo-forge-runner, which is a user-
+            # defined string to append to the job names.
             deploy_recipe_cmd(cmd)
