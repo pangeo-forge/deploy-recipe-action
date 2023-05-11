@@ -34,7 +34,7 @@ if __name__ == "__main__":
     ref = os.environ["GITHUB_HEAD_REF"]
     repository_id = os.environ["GITHUB_REPOSITORY_ID"]
     run_id = os.environ["GITHUB_RUN_ID"]
-    run_number = os.environ["GITHUB_RUN_NUMBER"]
+    run_attempt = os.environ["GITHUB_RUN_ATTEMPT"]
 
     # user input
     config = json.loads(os.environ["INPUT_PANGEO_FORGE_RUNNER_CONFIG"])
@@ -56,7 +56,10 @@ if __name__ == "__main__":
         # FIXME: what if this is a push event, and not a pull_request event?
         pulls_url = "/".join([api_url, "repos", repository, "pulls"])
         print(f"Fetching pulls from {pulls_url}")
-        pulls = requests.get(pulls_url).json()
+        
+        pulls_response = requests.get(pulls_url)
+        pulls_response.raise_for_status()
+        pulls = pulls_response.json()
 
         for p in pulls:
             if p["head"]["ref"] == ref:
@@ -99,7 +102,7 @@ if __name__ == "__main__":
                 if len(rid) > 44:
                     print(f"Recipe id {rid} is > 44 chars, truncating to 44 chars.")
                 job_name = (
-                    f"{rid.lower().replace('_', '-')[:44]}-{repository_id}-{run_id}-{run_number}"
+                    f"{rid.lower().replace('_', '-')[:44]}-{repository_id}-{run_id}-{run_attempt}"
                 )
                 print(f"Submitting {job_name = }")
                 extra_cmd = [f"--Bake.recipe_id={rid}", f"--Bake.job_name={job_name}"]
