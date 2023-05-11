@@ -92,6 +92,10 @@ if __name__ == "__main__":
         print("\nSubmitting job...")
         if recipe_ids:
             for rid in recipe_ids:
-                deploy_recipe_cmd(cmd + [f"--Bake.recipe_id={rid}", f"--Bake.job_name={rid}{workflow_sha}"])
+                jobname = f"{rid}{workflow_sha}"
+                print(f"Submission {jobname = }")
+                extra_cmd = [f"--Bake.recipe_id={rid}", f"--Bake.job_name={jobname}"]
+                print('Running PGF runner with {extrs_cmd = })
+                deploy_recipe_cmd(cmd + extra_cmd)
         else:
             deploy_recipe_cmd(cmd)
