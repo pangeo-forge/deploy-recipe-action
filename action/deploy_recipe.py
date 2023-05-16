@@ -97,7 +97,7 @@ if __name__ == "__main__":
         ]
         print("\nSubmitting job...")
         print(f"{recipe_ids = }")
-        if recipe_ids:
+        if select_recipe_by_label:
             for rid in recipe_ids:
                 if len(rid) > 44:
                     print(f"Recipe id {rid} is > 44 chars, truncating to 44 chars.")
