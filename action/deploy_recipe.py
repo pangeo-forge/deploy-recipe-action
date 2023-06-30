@@ -16,9 +16,9 @@ def deploy_recipe_cmd(cmd: list[str]):
         print(line)
 
     if submit_proc.returncode != 0:
-        raise ValueError("Job submission failed.")
         for line in stderr.splitlines():
             print(line)
+        raise ValueError("Job submission failed.")
     else:
         lastline = json.loads(stdout.splitlines()[-1])
         job_id = lastline["job_id"]
