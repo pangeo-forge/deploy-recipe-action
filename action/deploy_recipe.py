@@ -11,10 +11,13 @@ def deploy_recipe_cmd(cmd: list[str]):
     print(f"Calling subprocess with {cmd = }")
     submit_proc = subprocess.run(cmd, capture_output=True)
     stdout = submit_proc.stdout.decode()
+    stderr = submit_proc.stderr.decode()
     for line in stdout.splitlines():
         print(line)
 
     if submit_proc.returncode != 0:
+        for line in stderr.splitlines():
+            print(line)
         raise ValueError("Job submission failed.")
     else:
         lastline = json.loads(stdout.splitlines()[-1])
