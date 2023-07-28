@@ -1,5 +1,6 @@
 import os
 from dataclasses import dataclass
+from typing import TypedDict
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -26,6 +27,39 @@ def env(request):
         "INPUT_PANGEO_FORGE_RUNNER_CONFIG": '{"a": "b"}',
         "INPUT_SELECT_RECIPE_BY_LABEL": request.param["INPUT_SELECT_RECIPE_BY_LABEL"],
     }
+
+
+class MockPRLabels(TypedDict):
+    name: str
+
+
+class MockPRHead(TypedDict):
+    ref: str
+
+
+class MockGitHubPullsResponse(TypedDict):
+    labels: list[MockPRLabels]
+    head: MockPRHead
+
+
+@dataclass
+class MockRequestsGetResponse:
+    _json: list[MockGitHubPullsResponse]
+
+    def json(self) -> list[MockGitHubPullsResponse]:
+        return self._json
+
+    def raise_for_status(self):
+        pass
+
+
+@pytest.fixture
+def requests_get_return_value():
+    return MockRequestsGetResponse(
+        _json=[
+            {"labels": [{"name": "run:my-recipe"}], "head":{"ref": "abcdefg"}}
+        ],
+    )
 
 
 @dataclass
@@ -69,10 +103,12 @@ def test_main(
     listdir: MagicMock,
     open: MagicMock,
     env: dict,
+    requests_get_return_value: MockRequestsGetResponse,
     subprocess_return_value: MockProcess,
     listdir_return_value: list,
 ):
 
+    requests_get.return_value = requests_get_return_value
     subprocess_run.return_value = subprocess_return_value
     listdir.return_value = listdir_return_value
 
@@ -95,8 +131,11 @@ def test_main(
             # (to check github api for PR `run:...` labels)
             requests_get.assert_called()
             
-            has_run_labels = False  # FIXME: fixturize this
-            if has_run_labels:
+            if any(
+                label["name"].startswith("run:")
+                for pull_request in requests_get_return_value.json()
+                for label in pull_request["labels"]
+            ):
                 subprocess_run.assert_called()
 
         else:
