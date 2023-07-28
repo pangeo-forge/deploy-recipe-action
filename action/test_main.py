@@ -88,16 +88,34 @@ def listdir_return_value(request):
     return request.param
 
 
+class MockNamedTemporaryFile:
+    name = "mock-temp-file"
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        pass
+
+    def write(self, *args):
+        pass
+
+    def flush(self):
+        pass
+
+
 @patch("deploy_recipe.open")
 @patch("deploy_recipe.os.listdir")
 @patch("deploy_recipe.subprocess.run")
 @patch("deploy_recipe.requests.get")
+@patch("deploy_recipe.tempfile.NamedTemporaryFile")
 def test_main(
     # Note that patches are passed to `test_main` by order, not name. 
     # See https://docs.python.org/3/library/unittest.mock.html#quick-guide:
     # "When you nest patch decorators the mocks are passed in to the decorated
     # function in the same order they applied (the normal Python order that
     # decorators are applied). This means from the bottom up..."
+    named_temporary_file: MagicMock,
     requests_get: MagicMock,
     subprocess_run: MagicMock,
     listdir: MagicMock,
@@ -106,7 +124,9 @@ def test_main(
     requests_get_return_value: MockRequestsGetResponse,
     subprocess_return_value: MockProcess,
     listdir_return_value: list,
-):
+):  
+    mock_named_temporary_file = MockNamedTemporaryFile()
+    named_temporary_file.return_value = mock_named_temporary_file
 
     requests_get.return_value = requests_get_return_value
     subprocess_run.return_value = subprocess_return_value
@@ -131,12 +151,29 @@ def test_main(
             # (to check github api for PR `run:...` labels)
             requests_get.assert_called()
             
-            if any(
-                label["name"].startswith("run:")
+            run_labels = [
+                label["name"].split("run:")[-1]
                 for pull_request in requests_get_return_value.json()
                 for label in pull_request["labels"]
-            ):
-                subprocess_run.assert_called()
+                if label["name"].startswith("run:")
+            ]
+            if run_labels:
+                subprocess_run.assert_called_with(
+                    [
+                        'pangeo-forge-runner',
+                        'bake',
+                        '--repo',
+                        f'{env["GITHUB_SERVER_URL"]}/{env["GITHUB_REPOSITORY"]}',
+                        '--ref',
+                        env["GITHUB_HEAD_REF"],
+                        '--json',
+                        '-f',
+                        mock_named_temporary_file.name,
+                        f'--Bake.recipe_id={run_labels[-1]}',
+                        f'--Bake.job_name=my-recipe-1234567890-0987654321-1'
+                    ],
+                    capture_output=True,
+                )
 
         else:
             # subprocess.run is always called if INPUT_SELECT_RECIPE_BY_LABEL is empty
