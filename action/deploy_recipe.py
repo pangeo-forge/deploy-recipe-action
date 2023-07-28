@@ -1,6 +1,7 @@
 import json
 import os
 import subprocess
+import sys
 import tempfile
 from urllib.parse import urljoin
 
@@ -26,7 +27,7 @@ def deploy_recipe_cmd(cmd: list[str]):
         print(f"Job submitted with {job_id = } and {job_name = }")
 
 
-if __name__ == "__main__":
+def main():
     # set in Dockerfile
     conda_env = os.environ["CONDA_ENV"]
 
@@ -118,3 +119,7 @@ if __name__ == "__main__":
             # passing a `--Bake.job_name_append` option to pangeo-forge-runner, which is a user-
             # defined string to append to the job names.
             deploy_recipe_cmd(cmd)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
