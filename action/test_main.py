@@ -53,6 +53,11 @@ def listdir_return_value(request):
     return request.param
 
 
+@pytest.fixture
+def mock_tempfile_name():
+    return "mock-temp-file.json"
+
+
 @patch("deploy_recipe.open")
 @patch("deploy_recipe.os.listdir")
 @patch("deploy_recipe.subprocess.run")
@@ -73,15 +78,20 @@ def test_main(
     requests_get_returns_json: list,
     subprocess_return_values: dict,
     listdir_return_value: list,
+    mock_tempfile_name: str,
 ):  
-    mock_tempfile_name = "mock-temp-file.json"
+    # mock a context manager, see: https://stackoverflow.com/a/28852060
     named_temporary_file.return_value.__enter__.return_value.name = mock_tempfile_name
+
+    # mock reponse of requests.get call to github api 
     requests_get.return_value.json.return_value = requests_get_returns_json
 
+    # mock result of subprocess call to `pangeo-forge-runner`
     subprocess_run.return_value.stdout.decode.return_value = subprocess_return_values["stdout"]
     subprocess_run.return_value.stderr.decode.return_value = subprocess_return_values["stderr"]
     subprocess_run.return_value.returncode = subprocess_return_values["returncode"]
 
+    # mock listdir call return value
     listdir.return_value = listdir_return_value
 
     with patch.dict(os.environ, env):
