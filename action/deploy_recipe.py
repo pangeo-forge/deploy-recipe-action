@@ -3,7 +3,6 @@ import os
 import subprocess
 import sys
 import tempfile
-from urllib.parse import urljoin
 
 import requests
 
@@ -33,7 +32,6 @@ def main():
 
     # injected by github actions
     repository = os.environ["GITHUB_REPOSITORY"]  # will this fail for external prs?
-    server_url = os.environ["GITHUB_SERVER_URL"]
     api_url = os.environ["GITHUB_API_URL"]
     ref = os.environ["GITHUB_HEAD_REF"]
     repository_id = os.environ["GITHUB_REPOSITORY_ID"]
@@ -44,12 +42,8 @@ def main():
     config = json.loads(os.environ["INPUT_PANGEO_FORGE_RUNNER_CONFIG"])
     select_recipe_by_label = os.environ["INPUT_SELECT_RECIPE_BY_LABEL"]
 
-    # assemble https url for pangeo-forge-runner
-    repo = urljoin(server_url, repository)
-
     # log variables to stdout
     print(f"{conda_env = }")
-    print(f"{repo = }")
     print(f"{ref = }")
     print(f"{config = }")
 
@@ -91,13 +85,9 @@ def main():
         cmd = [
             "pangeo-forge-runner",
             "bake",
-            "--repo",
-            repo,
-            "--ref",
-            ref,
+            "--repo=.",
             "--json",
-            "-f",
-            f.name,
+            f"-f={f.name}",
         ]
         print("\nSubmitting job...")
         print(f"{recipe_ids = }")

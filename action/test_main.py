@@ -16,7 +16,6 @@ def env(request):
     return {
         "CONDA_ENV": "notebook",
         "GITHUB_REPOSITORY": "my/repo",
-        "GITHUB_SERVER_URL": "https://github.com",
         "GITHUB_API_URL": "https://api.github.com",
         "GITHUB_HEAD_REF": "abcdefg",
         "GITHUB_REPOSITORY_ID": "1234567890",
@@ -124,13 +123,9 @@ def test_main(
                     [
                         'pangeo-forge-runner',
                         'bake',
-                        '--repo',
-                        f'{env["GITHUB_SERVER_URL"]}/{env["GITHUB_REPOSITORY"]}',
-                        '--ref',
-                        env["GITHUB_HEAD_REF"],
+                        '--repo=.',
                         '--json',
-                        '-f',
-                        mock_tempfile_name,
+                        f'-f={mock_tempfile_name}',
                         f'--Bake.recipe_id={run_labels[-1]}',
                         f'--Bake.job_name=my-recipe-1234567890-0987654321-1'
                     ],
