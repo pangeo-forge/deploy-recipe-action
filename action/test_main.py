@@ -1,6 +1,4 @@
 import os
-from dataclasses import dataclass
-from typing import TypedDict
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -29,51 +27,18 @@ def env(request):
     }
 
 
-class MockPRLabels(TypedDict):
-    name: str
-
-
-class MockPRHead(TypedDict):
-    ref: str
-
-
-class MockGitHubPullsResponse(TypedDict):
-    labels: list[MockPRLabels]
-    head: MockPRHead
-
-
-@dataclass
-class MockRequestsGetResponse:
-    _json: list[MockGitHubPullsResponse]
-
-    def json(self) -> list[MockGitHubPullsResponse]:
-        return self._json
-
-    def raise_for_status(self):
-        pass
+@pytest.fixture
+def requests_get_returns_json():
+    return [
+        {"labels": [{"name": "run:my-recipe"}], "head":{"ref": "abcdefg"}}
+    ]
 
 
 @pytest.fixture
-def requests_get_return_value():
-    return MockRequestsGetResponse(
-        _json=[
-            {"labels": [{"name": "run:my-recipe"}], "head":{"ref": "abcdefg"}}
-        ],
-    )
-
-
-@dataclass
-class MockProcess:
-    stdout: bytes
-    stderr: bytes
-    returncode: int
-
-
-@pytest.fixture
-def subprocess_return_value():
-    return MockProcess(
-        stdout=b'{"job_id": "foo", "job_name": "bar"}',
-        stderr=b"",
+def subprocess_return_values():
+    return dict(
+        stdout='{"job_id": "foo", "job_name": "bar"}',
+        stderr="",
         returncode=0,
     )
 
@@ -86,22 +51,6 @@ def subprocess_return_value():
 )
 def listdir_return_value(request):
     return request.param
-
-
-class MockNamedTemporaryFile:
-    name = "mock-temp-file"
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *args):
-        pass
-
-    def write(self, *args):
-        pass
-
-    def flush(self):
-        pass
 
 
 @patch("deploy_recipe.open")
@@ -121,15 +70,18 @@ def test_main(
     listdir: MagicMock,
     open: MagicMock,
     env: dict,
-    requests_get_return_value: MockRequestsGetResponse,
-    subprocess_return_value: MockProcess,
+    requests_get_returns_json: list,
+    subprocess_return_values: dict,
     listdir_return_value: list,
 ):  
-    mock_named_temporary_file = MockNamedTemporaryFile()
-    named_temporary_file.return_value = mock_named_temporary_file
+    mock_tempfile_name = "mock-temp-file.json"
+    named_temporary_file.return_value.__enter__.return_value.name = mock_tempfile_name
+    requests_get.return_value.json.return_value = requests_get_returns_json
 
-    requests_get.return_value = requests_get_return_value
-    subprocess_run.return_value = subprocess_return_value
+    subprocess_run.return_value.stdout.decode.return_value = subprocess_return_values["stdout"]
+    subprocess_run.return_value.stderr.decode.return_value = subprocess_return_values["stderr"]
+    subprocess_run.return_value.returncode = subprocess_return_values["returncode"]
+
     listdir.return_value = listdir_return_value
 
     with patch.dict(os.environ, env):
@@ -153,7 +105,7 @@ def test_main(
             
             run_labels = [
                 label["name"].split("run:")[-1]
-                for pull_request in requests_get_return_value.json()
+                for pull_request in requests_get_returns_json
                 for label in pull_request["labels"]
                 if label["name"].startswith("run:")
             ]
@@ -168,7 +120,7 @@ def test_main(
                         env["GITHUB_HEAD_REF"],
                         '--json',
                         '-f',
-                        mock_named_temporary_file.name,
+                        mock_tempfile_name,
                         f'--Bake.recipe_id={run_labels[-1]}',
                         f'--Bake.job_name=my-recipe-1234567890-0987654321-1'
                     ],
