@@ -21,6 +21,7 @@ def env(request):
         "GITHUB_REPOSITORY_ID": "1234567890",
         "GITHUB_RUN_ID": "0987654321",
         "GITHUB_RUN_ATTEMPT": "1",
+        # TODO: parametrize runner config with `BaseCommand.feedstock-subdir`
         "INPUT_PANGEO_FORGE_RUNNER_CONFIG": '{"a": "b"}',
         "INPUT_SELECT_RECIPE_BY_LABEL": request.param["INPUT_SELECT_RECIPE_BY_LABEL"],
     }
@@ -57,7 +58,6 @@ def mock_tempfile_name():
     return "mock-temp-file.json"
 
 
-@patch("deploy_recipe.open")
 @patch("deploy_recipe.os.listdir")
 @patch("deploy_recipe.subprocess.run")
 @patch("deploy_recipe.requests.get")
@@ -72,7 +72,6 @@ def test_main(
     requests_get: MagicMock,
     subprocess_run: MagicMock,
     listdir: MagicMock,
-    open: MagicMock,
     env: dict,
     requests_get_returns_json: list,
     subprocess_return_values: dict,
@@ -96,14 +95,18 @@ def test_main(
     with patch.dict(os.environ, env):
         main()
 
-        # open is only called if listdir('feedstock') contains requirements.txt
-        # FIXME: Following fix of https://github.com/pangeo-forge/deploy-recipe-action/issues/12
-        # open should never be called. Instead, subprocess.run should be called with:
-        # `pip install -r requirements.txt`
         if "requirements.txt" in listdir_return_value:
-            open.assert_called_once()
+            to_install = "feedstock/requirements.txt"  # TODO: parametrize
+            subprocess_run.assert_any_call(
+                f"mamba run -n {env['CONDA_ENV']} pip install -Ur {to_install}".split(),
+                capture_output=True,
+                text=True,
+            )
         else:
-            open.assert_not_called()
+            # if 'requirements.txt' not present, 'pip' is never invoked. re: `call_args_list`, see:
+            # https://docs.python.org/3/library/unittest.mock.html#unittest.mock.Mock.call_args_list
+            for call in [args[0][0] for args in subprocess_run.call_args_list]:
+                assert "pip" not in call
 
         listdir.assert_called_once()
         

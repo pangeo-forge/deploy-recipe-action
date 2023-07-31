@@ -65,15 +65,22 @@ def main():
     recipe_ids = [l.replace("run:", "") for l in labels if l.startswith("run:")]
 
     # dynamically install extra deps if requested.
+    # if calling `pangeo-forge-runner` directly, `--feedstock-subdir` can be passed as a CLI arg.
+    # in the action context, users do not compose their own `pangeo-forge-runner` CLI calls, so if
+    # they want to use a non-default value for feedstock-subdir, it must be passed via the long-form
+    # name in the config JSON (i.e, `{"BaseCommand": "feedstock-subdir": ...}}`).
+    feedstock_subdir = (
+        config["BaseCommand"]["feedstock-subdir"]
+        if "BaseCommand" in config and "feedstock-subdir" in config["BaseCommand"]
+        else "feedstock"
+    )
     # because we've run the actions/checkout step before reaching this point, our current
     # working directory is the root of the feedstock repo, so we can list feedstock repo
     # contents directly on the filesystem here, without requesting it from github.
-    if "requirements.txt" in os.listdir("feedstock"):
-        with open("feedstock/requirements.txt") as f:
-            to_install = f.read().splitlines()
-
-        print(f"Installing extra packages {to_install}...")
-        install_cmd = f"mamba run -n {conda_env} pip install -U".split() + to_install
+    if "requirements.txt" in os.listdir(feedstock_subdir):
+        to_install = f"{feedstock_subdir}/requirements.txt"
+        print(f"Installing extra packages from {to_install}...")
+        install_cmd = f"mamba run -n {conda_env} pip install -Ur {to_install}".split()
         install_proc = subprocess.run(install_cmd, capture_output=True, text=True)
         if install_proc.returncode != 0:
             # installations failed, so record the error and bail early
