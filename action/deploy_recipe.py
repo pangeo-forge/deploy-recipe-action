@@ -1,8 +1,8 @@
 import json
 import os
 import subprocess
+import sys
 import tempfile
-from urllib.parse import urljoin
 
 import requests
 
@@ -26,15 +26,15 @@ def deploy_recipe_cmd(cmd: list[str]):
         print(f"Job submitted with {job_id = } and {job_name = }")
 
 
-if __name__ == "__main__":
+def main():
     # set in Dockerfile
     conda_env = os.environ["CONDA_ENV"]
 
     # injected by github actions
     repository = os.environ["GITHUB_REPOSITORY"]  # will this fail for external prs?
-    server_url = os.environ["GITHUB_SERVER_URL"]
     api_url = os.environ["GITHUB_API_URL"]
-    ref = os.environ["GITHUB_HEAD_REF"]
+    head_ref = os.environ["GITHUB_HEAD_REF"]
+    sha = os.environ["GITHUB_SHA"]
     repository_id = os.environ["GITHUB_REPOSITORY_ID"]
     run_id = os.environ["GITHUB_RUN_ID"]
     run_attempt = os.environ["GITHUB_RUN_ATTEMPT"]
@@ -43,42 +43,49 @@ if __name__ == "__main__":
     config = json.loads(os.environ["INPUT_PANGEO_FORGE_RUNNER_CONFIG"])
     select_recipe_by_label = os.environ["INPUT_SELECT_RECIPE_BY_LABEL"]
 
-    # assemble https url for pangeo-forge-runner
-    repo = urljoin(server_url, repository)
-
     # log variables to stdout
     print(f"{conda_env = }")
-    print(f"{repo = }")
-    print(f"{ref = }")
+    print(f"{head_ref = }")
+    print(f"{sha = }")
     print(f"{config = }")
 
     labels = []
     if select_recipe_by_label:
-        # iterate through PRs on the repo. if the PR's head ref is the same
-        # as our ``ref`` here, get the labels from that PR, and stop iteration.
-        # FIXME: what if this is a push event, and not a pull_request event?
-        pulls_url = "/".join([api_url, "repos", repository, "pulls"])
-        print(f"Fetching pulls from {pulls_url}")
+        # `head_ref` is available for `pull_request` events. on a `push` event, the `head_ref`
+        # environment variable will be empty, so in that case we use `sha` to find the PR instead.
+        commit_sha = head_ref if head_ref else sha
+        # querying the following endpoint should give us the PR containing the desired labels,
+        # regardless of whether this is a `pull_request` or `push` event. see official docs here:
+        # https://docs.github.com/en/rest/commits/commits?apiVersion=2022-11-28#list-pull-requests-associated-with-a-commit
+        pulls_url = "/".join([api_url, "repos", repository, "commits", commit_sha, "pulls"])
+        headers = {"X-GitHub-Api-Version": "2022-11-28", "Accept": "application/vnd.github+json"}
         
-        pulls_response = requests.get(pulls_url)
+        print(f"Fetching pulls from {pulls_url}")
+        pulls_response = requests.get(pulls_url, headers=headers)
         pulls_response.raise_for_status()
         pulls = pulls_response.json()
+        assert len(pulls) == 1  # pretty sure this is always true, but just making sure
+        labels: list[str] = [label["name"] for label in pulls[0]["labels"]]
 
-        for p in pulls:
-            if p["head"]["ref"] == ref:
-                labels: list[str] = [label["name"] for label in p["labels"]]
     recipe_ids = [l.replace("run:", "") for l in labels if l.startswith("run:")]
 
     # dynamically install extra deps if requested.
+    # if calling `pangeo-forge-runner` directly, `--feedstock-subdir` can be passed as a CLI arg.
+    # in the action context, users do not compose their own `pangeo-forge-runner` CLI calls, so if
+    # they want to use a non-default value for feedstock-subdir, it must be passed via the long-form
+    # name in the config JSON (i.e, `{"BaseCommand": "feedstock-subdir": ...}}`).
+    feedstock_subdir = (
+        config["BaseCommand"]["feedstock-subdir"]
+        if "BaseCommand" in config and "feedstock-subdir" in config["BaseCommand"]
+        else "feedstock"
+    )
     # because we've run the actions/checkout step before reaching this point, our current
     # working directory is the root of the feedstock repo, so we can list feedstock repo
     # contents directly on the filesystem here, without requesting it from github.
-    if "requirements.txt" in os.listdir("feedstock"):
-        with open("feedstock/requirements.txt") as f:
-            to_install = f.read().splitlines()
-
-        print(f"Installing extra packages {to_install}...")
-        install_cmd = f"mamba run -n {conda_env} pip install -U".split() + to_install
+    if "requirements.txt" in os.listdir(feedstock_subdir):
+        to_install = f"{feedstock_subdir}/requirements.txt"
+        print(f"Installing extra packages from {to_install}...")
+        install_cmd = f"mamba run -n {conda_env} pip install -Ur {to_install}".split()
         install_proc = subprocess.run(install_cmd, capture_output=True, text=True)
         if install_proc.returncode != 0:
             # installations failed, so record the error and bail early
@@ -90,13 +97,9 @@ if __name__ == "__main__":
         cmd = [
             "pangeo-forge-runner",
             "bake",
-            "--repo",
-            repo,
-            "--ref",
-            ref,
+            "--repo=.",
             "--json",
-            "-f",
-            f.name,
+            f"-f={f.name}",
         ]
         print("\nSubmitting job...")
         print(f"{recipe_ids = }")
@@ -118,3 +121,7 @@ if __name__ == "__main__":
             # passing a `--Bake.job_name_append` option to pangeo-forge-runner, which is a user-
             # defined string to append to the job names.
             deploy_recipe_cmd(cmd)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
