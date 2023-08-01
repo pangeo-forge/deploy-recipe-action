@@ -6,31 +6,39 @@ import pytest
 from deploy_recipe import main
 
 
-@pytest.fixture(
-    params=[
-        dict(INPUT_SELECT_RECIPE_BY_LABEL=""),
-        dict(INPUT_SELECT_RECIPE_BY_LABEL="true"),
-    ]
-)
-def env(request):
+@pytest.fixture(params=["", "abcdefg"])
+def head_ref(request):
+    return request.param
+
+
+@pytest.fixture(params=["", "true"])
+def select_recipe_by_label(request):
+    return request.param
+
+
+@pytest.fixture
+def env(select_recipe_by_label, head_ref):
     return {
         "CONDA_ENV": "notebook",
         "GITHUB_REPOSITORY": "my/repo",
         "GITHUB_API_URL": "https://api.github.com",
-        "GITHUB_HEAD_REF": "abcdefg",
+        # fixturing of `head_ref` reflects that on `push`
+        # events, `GITHUB_HEAD_REF` env var is empty
+        "GITHUB_HEAD_REF": head_ref,
+        "GITHUB_SHA": "gfedcba",
         "GITHUB_REPOSITORY_ID": "1234567890",
         "GITHUB_RUN_ID": "0987654321",
         "GITHUB_RUN_ATTEMPT": "1",
         # TODO: parametrize runner config with `BaseCommand.feedstock-subdir`
         "INPUT_PANGEO_FORGE_RUNNER_CONFIG": '{"a": "b"}',
-        "INPUT_SELECT_RECIPE_BY_LABEL": request.param["INPUT_SELECT_RECIPE_BY_LABEL"],
+        "INPUT_SELECT_RECIPE_BY_LABEL": select_recipe_by_label,
     }
 
 
 @pytest.fixture
 def requests_get_returns_json():
     return [
-        {"labels": [{"name": "run:my-recipe"}], "head":{"ref": "abcdefg"}}
+        {"labels": [{"name": "run:my-recipe"}]}
     ]
 
 
@@ -109,11 +117,18 @@ def test_main(
                 assert "pip" not in call
 
         listdir.assert_called_once()
-        
+
         if env["INPUT_SELECT_RECIPE_BY_LABEL"]:
-            # requests.get is always called if INPUT_SELECT_RECIPE_BY_LABEL=true
-            # (to check github api for PR `run:...` labels)
-            requests_get.assert_called()
+            # requests.get is always called if INPUT_SELECT_RECIPE_BY_LABEL=true (to check github
+            # api for PR `run:...` labels). if this is a `pull_request` event, the called gh api
+            # url should contain the `GITHUB_HEAD_REF` for that PR. if this is a `push` event
+            # (reflected in the env by the fact that `GITHUB_HEAD_REF` is empty), then we expect to
+            # be calling an api url for the `GITHUB_SHA` associated with the `push`.
+            called_gh_api_url = requests_get.call_args[0][0]
+            if env["GITHUB_HEAD_REF"]:
+                assert env["GITHUB_HEAD_REF"] in called_gh_api_url
+            else:
+                assert env["GITHUB_SHA"] in called_gh_api_url
             
             run_labels = [
                 label["name"].split("run:")[-1]

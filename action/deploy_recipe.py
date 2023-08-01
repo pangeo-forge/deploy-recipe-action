@@ -33,7 +33,8 @@ def main():
     # injected by github actions
     repository = os.environ["GITHUB_REPOSITORY"]  # will this fail for external prs?
     api_url = os.environ["GITHUB_API_URL"]
-    ref = os.environ["GITHUB_HEAD_REF"]
+    head_ref = os.environ["GITHUB_HEAD_REF"]
+    sha = os.environ["GITHUB_SHA"]
     repository_id = os.environ["GITHUB_REPOSITORY_ID"]
     run_id = os.environ["GITHUB_RUN_ID"]
     run_attempt = os.environ["GITHUB_RUN_ATTEMPT"]
@@ -44,24 +45,28 @@ def main():
 
     # log variables to stdout
     print(f"{conda_env = }")
-    print(f"{ref = }")
+    print(f"{head_ref = }")
+    print(f"{sha = }")
     print(f"{config = }")
 
     labels = []
     if select_recipe_by_label:
-        # iterate through PRs on the repo. if the PR's head ref is the same
-        # as our ``ref`` here, get the labels from that PR, and stop iteration.
-        # FIXME: what if this is a push event, and not a pull_request event?
-        pulls_url = "/".join([api_url, "repos", repository, "pulls"])
-        print(f"Fetching pulls from {pulls_url}")
+        # `head_ref` is available for `pull_request` events. on a `push` event, the `head_ref`
+        # environment variable will be empty, so in that case we use `sha` to find the PR instead.
+        commit_sha = head_ref if head_ref else sha
+        # querying the following endpoint should give us the PR containing the desired labels,
+        # regardless of whether this is a `pull_request` or `push` event. see official docs here:
+        # https://docs.github.com/en/rest/commits/commits?apiVersion=2022-11-28#list-pull-requests-associated-with-a-commit
+        pulls_url = "/".join([api_url, "repos", repository, "commits", commit_sha, "pulls"])
+        headers = {"X-GitHub-Api-Version": "2022-11-28", "Accept": "application/vnd.github+json"}
         
-        pulls_response = requests.get(pulls_url)
+        print(f"Fetching pulls from {pulls_url}")
+        pulls_response = requests.get(pulls_url, headers=headers)
         pulls_response.raise_for_status()
         pulls = pulls_response.json()
+        assert len(pulls) == 1  # pretty sure this is always true, but just making sure
+        labels: list[str] = [label["name"] for label in pulls[0]["labels"]]
 
-        for p in pulls:
-            if p["head"]["ref"] == ref:
-                labels: list[str] = [label["name"] for label in p["labels"]]
     recipe_ids = [l.replace("run:", "") for l in labels if l.startswith("run:")]
 
     # dynamically install extra deps if requested.
