@@ -1,3 +1,4 @@
+import json
 import os
 from unittest.mock import MagicMock, patch
 
@@ -16,8 +17,20 @@ def select_recipe_by_label(request):
     return request.param
 
 
+@pytest.fixture(params=["string", "file"])
+def pangeo_forge_runner_config(request, tmp_path_factory):
+    config_string = '{"a": "b"}'
+    if request.param == "file":
+        fn = tmp_path_factory.mktemp("config") / "pangeo-forge-runner-config.json"
+        with open(fn.name, mode="w") as f:
+            json.dump(config_string, f)
+        return fn.name
+    else:
+        return config_string
+
+
 @pytest.fixture
-def env(select_recipe_by_label, head_ref):
+def env(select_recipe_by_label, head_ref, pangeo_forge_runner_config):
     return {
         "CONDA_ENV": "notebook",
         "GITHUB_REPOSITORY": "my/repo",
@@ -30,7 +43,7 @@ def env(select_recipe_by_label, head_ref):
         "GITHUB_RUN_ID": "0987654321",
         "GITHUB_RUN_ATTEMPT": "1",
         # TODO: parametrize runner config with `BaseCommand.feedstock-subdir`
-        "INPUT_PANGEO_FORGE_RUNNER_CONFIG": '{"a": "b"}',
+        "INPUT_PANGEO_FORGE_RUNNER_CONFIG": pangeo_forge_runner_config,
         "INPUT_SELECT_RECIPE_BY_LABEL": select_recipe_by_label,
     }
 

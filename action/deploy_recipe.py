@@ -40,8 +40,17 @@ def main():
     run_attempt = os.environ["GITHUB_RUN_ATTEMPT"]
 
     # user input
-    config = json.loads(os.environ["INPUT_PANGEO_FORGE_RUNNER_CONFIG"])
+    config_string = os.environ["INPUT_PANGEO_FORGE_RUNNER_CONFIG"]
     select_recipe_by_label = os.environ["INPUT_SELECT_RECIPE_BY_LABEL"]
+
+    # parse config
+    if os.path.exists(config_string):
+        # we allow local paths pointing to json files
+        with open(config_string) as f:
+            config = json.load(f)
+    else:
+        # or json strings passed inline in the workflow yaml
+        config = json.loads(config_string)
 
     # log variables to stdout
     print(f"{conda_env = }")
