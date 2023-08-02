@@ -59,7 +59,9 @@ def main():
             raise ValueError(
                 f"{config_string} failed to parse to JSON. If you meant to pass a JSON string, "
                 "please confirm that it is correctly formatted. If you meant to pass a filename, "
-                f"please confirm this file exists at the given path, relative to {os.getcwd()}."
+                "please confirm this file exists at the given path. Note, this action is running "
+                f"where the workflow YAML file lives, which is: '{os.getcwd()}'. If you provide "
+                "a relative path, it must be relative to this location."
             ) from e
 
     # log variables to stdout
