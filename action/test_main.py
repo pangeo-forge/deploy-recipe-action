@@ -22,9 +22,10 @@ def pangeo_forge_runner_config(request, tmp_path_factory):
     config_string = '{"a": "b"}'
     if request.param == "file":
         fn = tmp_path_factory.mktemp("config") / "pangeo-forge-runner-config.json"
-        with open(fn.name, mode="w") as f:
+        resolved_path = fn.resolve()
+        with open(resolved_path, mode="w") as f:
             json.dump(config_string, f)
-        return fn.name
+        return str(resolved_path)
     else:
         return config_string
 
