@@ -89,7 +89,7 @@ def main():
         install_proc = subprocess.run(install_cmd, capture_output=True, text=True)
         if install_proc.returncode != 0:
             # installations failed, so record the error and bail early
-            ValueError(f"Installs failed with {install_proc.stderr = }")
+            raise ValueError(f"Installs failed with {install_proc.stderr = }")
 
     with tempfile.NamedTemporaryFile("w", suffix=".json") as f:
         json.dump(config, f)
