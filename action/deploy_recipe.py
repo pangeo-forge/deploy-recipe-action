@@ -123,11 +123,11 @@ def main():
             f"-f={f.name}",
         ]
         print("\nSubmitting job...")
-        print(f"{recipe_ids = }")
         job_name_base = (
             f"{repository_id}-{run_id}-{run_attempt}"
         )
         if select_recipe_by_label:
+            print(f"{recipe_ids = }")
             for rid in recipe_ids:
                 if len(rid) > 44:
                     print(f"Recipe id {rid} is > 44 chars, truncating to 44 chars.")
