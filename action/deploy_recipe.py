@@ -136,7 +136,7 @@ def main():
                 extra_cmd = [f"--Bake.recipe_id={rid}", f"--Bake.job_name={job_name}"]
                 deploy_recipe_cmd(cmd + extra_cmd)
         else:
-            extra_cmd = [f"--Bake.job_name={job_name_base}"]
+            extra_cmd = [f"--Bake.job_name=a{job_name_base}"]
             deploy_recipe_cmd(cmd + extra_cmd)
 
 
