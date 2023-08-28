@@ -54,7 +54,8 @@ def subprocess_return_values():
 @pytest.fixture(
     params=[
         ["meta.yaml", "recipe.py"],
-        ["meta.yaml", "recipe.py", "requirements.txt"]
+        ["meta.yaml", "recipe.py", "requirements.txt"],
+        # ["meta.yaml", "recipe.py", "broken-requirements.txt"]
     ]
 )
 def listdir_return_value(request):
@@ -67,6 +68,7 @@ def mock_tempfile_name():
 
 
 @patch("deploy_recipe.os.listdir")
+@patch("deploy_recipe.pip_install")
 @patch("deploy_recipe.subprocess.run")
 @patch("deploy_recipe.requests.get")
 @patch("deploy_recipe.tempfile.NamedTemporaryFile")
@@ -79,11 +81,12 @@ def test_main(
     named_temporary_file: MagicMock,
     requests_get: MagicMock,
     subprocess_run: MagicMock,
+    pip_install: MagicMock,
     listdir: MagicMock,
     env: dict,
     requests_get_returns_json: list,
     subprocess_return_values: dict,
-    listdir_return_value: list,
+    listdir_return_value: list[str],
     mock_tempfile_name: str,
 ):  
     # mock a context manager, see: https://stackoverflow.com/a/28852060
@@ -103,13 +106,9 @@ def test_main(
     with patch.dict(os.environ, env):
         main()
 
-        if "requirements.txt" in listdir_return_value:
-            to_install = "feedstock/requirements.txt"  # TODO: parametrize
-            subprocess_run.assert_any_call(
-                f"mamba run -n {env['CONDA_ENV']} pip install -Ur {to_install}".split(),
-                capture_output=True,
-                text=True,
-            )
+        if any([path.endswith("requirements.txt") for path in listdir_return_value]):
+            requirements_file_path = "feedstock/requirements.txt"  # TODO: parametrize
+            pip_install.assert_any_call(requirements_file_path, env['CONDA_ENV'])
         else:
             # if 'requirements.txt' not present, 'pip' is never invoked. re: `call_args_list`, see:
             # https://docs.python.org/3/library/unittest.mock.html#unittest.mock.Mock.call_args_list
