@@ -1,9 +1,15 @@
 import os
+import sys
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from deploy_recipe import main
+# actions do not require an installed package (action module is run as script)
+# to get tests separated into a different directory (among other things, allows
+# clearer differentiation of coverage), add `action` dir to PATH.
+sys.path.append((Path(__file__).parent.parent / "action").absolute().as_posix())
+from deploy_recipe import main  # type: ignore
 
 
 @pytest.fixture(params=["", "abcdefg"], ids=["no_head_ref", "has_head_ref"])
