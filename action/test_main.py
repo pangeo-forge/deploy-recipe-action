@@ -6,12 +6,12 @@ import pytest
 from deploy_recipe import main
 
 
-@pytest.fixture(params=["", "abcdefg"])
+@pytest.fixture(params=["", "abcdefg"], ids=["no_head_ref", "has_head_ref"])
 def head_ref(request):
     return request.param
 
 
-@pytest.fixture(params=["", "true"])
+@pytest.fixture(params=["", "true"], ids=["no_label", "select_by_label"])
 def select_recipe_by_label(request):
     return request.param
 
@@ -53,12 +53,13 @@ def subprocess_return_values():
 
 @pytest.fixture(
     params=[
-        ["meta.yaml", "recipe.py"],
-        ["meta.yaml", "recipe.py", "requirements.txt"],
-        # ["meta.yaml", "recipe.py", "broken-requirements.txt"]
-    ]
+        (["meta.yaml", "recipe.py"], None),
+        (["meta.yaml", "recipe.py", "requirements.txt"], None),
+        (["meta.yaml", "recipe.py", "requirements.txt"], ValueError),
+    ],
+    ids=["no_reqs", "has_reqs", "broken_reqs"],
 )
-def listdir_return_value(request):
+def listdir_return_value_with_pip_install_raises(request):
     return request.param
 
 
@@ -86,7 +87,7 @@ def test_main(
     env: dict,
     requests_get_returns_json: list,
     subprocess_return_values: dict,
-    listdir_return_value: list[str],
+    listdir_return_value_with_pip_install_raises: list[str],
     mock_tempfile_name: str,
 ):  
     # mock a context manager, see: https://stackoverflow.com/a/28852060
@@ -100,55 +101,65 @@ def test_main(
     subprocess_run.return_value.stderr.decode.return_value = subprocess_return_values["stderr"]
     subprocess_run.return_value.returncode = subprocess_return_values["returncode"]
 
-    # mock listdir call return value
-    listdir.return_value = listdir_return_value
+    # mock listdir call return value, and pip install side effect
+    listdir_return, pip_install_raises = listdir_return_value_with_pip_install_raises
+    listdir.return_value = listdir_return
+    if pip_install_raises:
+        pip_install.side_effect = pip_install_raises()
 
     with patch.dict(os.environ, env):
-        main()
-
-        if any([path.endswith("requirements.txt") for path in listdir_return_value]):
-            requirements_file_path = "feedstock/requirements.txt"  # TODO: parametrize
-            pip_install.assert_any_call(requirements_file_path, env['CONDA_ENV'])
-        else:
-            # if 'requirements.txt' not present, 'pip' is never invoked. re: `call_args_list`, see:
+        if pip_install_raises:
+            with pytest.raises(ValueError):
+                main()
+            # if pip install fails, we should bail early & never invoke `bake`. re: `call_args_list`:
             # https://docs.python.org/3/library/unittest.mock.html#unittest.mock.Mock.call_args_list
             for call in [args[0][0] for args in subprocess_run.call_args_list]:
-                assert "pip" not in call
-
-        listdir.assert_called_once()
-
-        if env["INPUT_SELECT_RECIPE_BY_LABEL"]:
-            # requests.get is always called if INPUT_SELECT_RECIPE_BY_LABEL=true (to check github
-            # api for PR `run:...` labels). if this is a `pull_request` event, the called gh api
-            # url should contain the `GITHUB_HEAD_REF` for that PR. if this is a `push` event
-            # (reflected in the env by the fact that `GITHUB_HEAD_REF` is empty), then we expect to
-            # be calling an api url for the `GITHUB_SHA` associated with the `push`.
-            called_gh_api_url = requests_get.call_args[0][0]
-            if env["GITHUB_HEAD_REF"]:
-                assert env["GITHUB_HEAD_REF"] in called_gh_api_url
-            else:
-                assert env["GITHUB_SHA"] in called_gh_api_url
-            
-            run_labels = [
-                label["name"].split("run:")[-1]
-                for pull_request in requests_get_returns_json
-                for label in pull_request["labels"]
-                if label["name"].startswith("run:")
-            ]
-            if run_labels:
-                subprocess_run.assert_called_with(
-                    [
-                        'pangeo-forge-runner',
-                        'bake',
-                        '--repo=.',
-                        '--json',
-                        f'-f={mock_tempfile_name}',
-                        f'--Bake.recipe_id={run_labels[-1]}',
-                        f'--Bake.job_name=my-recipe-1234567890-0987654321-1'
-                    ],
-                    capture_output=True,
-                )
-
+                assert "bake" not in call
         else:
-            # subprocess.run is always called if INPUT_SELECT_RECIPE_BY_LABEL is empty
-            subprocess_run.assert_called()
+            main()
+
+            if any([path.endswith("requirements.txt") for path in listdir_return]):
+                pip_install.assert_any_call("feedstock/requirements.txt", env['CONDA_ENV'])
+            else:
+                # if 'requirements.txt' not present, 'pip' is never invoked.
+                # re: `call_args_list`: see link in comment in `if pip_install_raises:` block above.
+                for call in [args[0][0] for args in pip_install.call_args_list]:
+                    assert "pip" not in call
+
+            listdir.assert_called_once()
+
+            if env["INPUT_SELECT_RECIPE_BY_LABEL"]:
+                # requests.get is always called if INPUT_SELECT_RECIPE_BY_LABEL=true (to check github
+                # api for PR `run:...` labels). if this is a `pull_request` event, the called gh api
+                # url should contain the `GITHUB_HEAD_REF` for that PR. if this is a `push` event
+                # (reflected in the env by the fact that `GITHUB_HEAD_REF` is empty), then we expect to
+                # be calling an api url for the `GITHUB_SHA` associated with the `push`.
+                called_gh_api_url = requests_get.call_args[0][0]
+                if env["GITHUB_HEAD_REF"]:
+                    assert env["GITHUB_HEAD_REF"] in called_gh_api_url
+                else:
+                    assert env["GITHUB_SHA"] in called_gh_api_url
+
+                run_labels = [
+                    label["name"].split("run:")[-1]
+                    for pull_request in requests_get_returns_json
+                    for label in pull_request["labels"]
+                    if label["name"].startswith("run:")
+                ]
+                if run_labels:
+                    subprocess_run.assert_called_with(
+                        [
+                            'pangeo-forge-runner',
+                            'bake',
+                            '--repo=.',
+                            '--json',
+                            f'-f={mock_tempfile_name}',
+                            f'--Bake.recipe_id={run_labels[-1]}',
+                            f'--Bake.job_name=my-recipe-1234567890-0987654321-1'
+                        ],
+                        capture_output=True,
+                    )
+
+            else:
+                # subprocess.run is always called if INPUT_SELECT_RECIPE_BY_LABEL is empty
+                subprocess_run.assert_called()
