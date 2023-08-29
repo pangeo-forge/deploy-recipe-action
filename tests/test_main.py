@@ -67,20 +67,27 @@ class MockCompletedProcess:
 
 @pytest.fixture
 def subprocess_run_side_effect():
-    def _get_proc(cmd: list[str], *args, **kwargs):
-        if "broken-requirements-feedstock" in " ".join(cmd):
+    def _get_mock_completed_proc(cmd: list[str], *args, **kwargs):
+        # `subprocess.run` is called a few ways, so use a side effect function
+        # to vary the output depending on what arguments it was called with.
+        if "pip install" in " ".join(cmd):
+            returncode = 0 if not "broken-requirements-feedstock" in " ".join(cmd) else 1
             return MockCompletedProcess(
                 stdout=b"",
                 stderr=b"",
-                returncode=1,
+                returncode=returncode,
             )
-        else:
+        elif "bake" in " ".join(cmd):
             return MockCompletedProcess(
                 stdout=b'{"job_id": "foo", "job_name": "bar"}',
                 stderr=b"",
                 returncode=0,
             )
-    return _get_proc
+        else:
+            raise NotImplementedError(
+                f"We only expect `pip install` and `bake` commands, got {cmd = }."
+            )
+    return _get_mock_completed_proc
 
 
 @pytest.fixture(
