@@ -24,17 +24,8 @@ def select_recipe_by_label(request):
     return request.param
 
 
-@pytest.fixture(params=["config", "broken-reqs"])
-def pangeo_forge_runner_config(request):
-    if request.param == "broken-reqs":
-        # TODO: possibly improve this, it's an awkward way to parametrize a broken requirements.txt
-        return json.dumps({"BaseCommand": {"feedstock-subdir": "broken-requirements-feedstock"}})
-    else:
-        return '{"a": "b"}'
-
-
 @pytest.fixture
-def env(select_recipe_by_label, head_ref, pangeo_forge_runner_config):
+def env(select_recipe_by_label, head_ref):
     return {
         "CONDA_ENV": "notebook",
         "GITHUB_REPOSITORY": "my/repo",
@@ -46,7 +37,7 @@ def env(select_recipe_by_label, head_ref, pangeo_forge_runner_config):
         "GITHUB_REPOSITORY_ID": "1234567890",
         "GITHUB_RUN_ID": "0987654321",
         "GITHUB_RUN_ATTEMPT": "1",
-        "INPUT_PANGEO_FORGE_RUNNER_CONFIG": pangeo_forge_runner_config,
+        "INPUT_PANGEO_FORGE_RUNNER_CONFIG": '{}',
         "INPUT_SELECT_RECIPE_BY_LABEL": select_recipe_by_label,
     }
 
@@ -92,12 +83,14 @@ def subprocess_run_side_effect():
 
 @pytest.fixture(
     params=[
-        ["meta.yaml", "recipe.py"],
-        ["meta.yaml", "recipe.py", "requirements.txt"],
+        (["meta.yaml", "recipe.py"], False),
+        (["meta.yaml", "recipe.py", "requirements.txt"], False),
+        # represents case where `pip install -r requirements.txt` raises error
+        (["meta.yaml", "recipe.py", "requirements.txt"], True),
     ],
-    ids=["no_reqs", "has_reqs"],
+    ids=["no_reqs", "has_reqs", "broken_reqs"],
 )
-def listdir_return_value(request):
+def listdir_return_value_with_pip_install_raises(request):
     return request.param
 
 
@@ -123,7 +116,7 @@ def test_main(
     env: dict,
     requests_get_returns_json: list,
     subprocess_run_side_effect: dict,
-    listdir_return_value: list[str],
+    listdir_return_value_with_pip_install_raises: tuple[str],
     mock_tempfile_name: str,
 ):  
     # mock a context manager, see: https://stackoverflow.com/a/28852060
@@ -136,13 +129,16 @@ def test_main(
     subprocess_run.side_effect = subprocess_run_side_effect
 
     # mock listdir call return value, and pip install side effect
+    listdir_return_value, pip_install_raises = listdir_return_value_with_pip_install_raises
     listdir.return_value = listdir_return_value
 
+    if pip_install_raises:
+        config: dict = json.loads(env["INPUT_PANGEO_FORGE_RUNNER_CONFIG"])
+        config.update({"BaseCommand": {"feedstock-subdir": "broken-requirements-feedstock"}})
+        env["INPUT_PANGEO_FORGE_RUNNER_CONFIG"] = json.dumps(config)
+
     with patch.dict(os.environ, env):
-        if (
-            "broken-requirements-feedstock" in env["INPUT_PANGEO_FORGE_RUNNER_CONFIG"]
-            and any([path.endswith("requirements.txt") for path in listdir_return_value])
-        ):
+        if "broken-requirements-feedstock" in env["INPUT_PANGEO_FORGE_RUNNER_CONFIG"]:
             with pytest.raises(ValueError):
                 main()
             # if pip install fails, we should bail early & never invoke `bake`. re: `call_args_list`:
