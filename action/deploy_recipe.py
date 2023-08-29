@@ -7,7 +7,8 @@ import tempfile
 import requests
 
 
-def deploy_recipe_cmd(cmd: list[str]):
+def call_subprocess_run(cmd: list[str]) -> str:
+    """Convenience wrapper for `subprocess.run` with stdout/stderr handling."""
     print(f"Calling subprocess with {cmd = }")
     submit_proc = subprocess.run(cmd, capture_output=True)
     stdout = submit_proc.stdout.decode()
@@ -18,21 +19,17 @@ def deploy_recipe_cmd(cmd: list[str]):
     if submit_proc.returncode != 0:
         for line in stderr.splitlines():
             print(line)
-        raise ValueError("Job submission failed.")
-    else:
-        lastline = json.loads(stdout.splitlines()[-1])
-        job_id = lastline["job_id"]
-        job_name = lastline["job_name"]
-        print(f"Job submitted with {job_id = } and {job_name = }")
+        raise ValueError(f"{cmd = } failed. See logging for details.")
+    return stdout
 
 
-def pip_install(requirements_file_path: str, conda_env: str):
-    print(f"Installing extra packages from {requirements_file_path}...")
-    install_cmd = f"mamba run -n {conda_env} pip install -Ur {requirements_file_path}".split()
-    install_proc = subprocess.run(install_cmd, capture_output=True, text=True)
-    if install_proc.returncode != 0:
-        # installations failed, so record the error and bail early
-        raise ValueError(f"Installs failed with {install_proc.stderr = }")
+def deploy_recipe_cmd(cmd: list[str]):
+    """Wrapper for `call_subprocess_run` with extra stdout parsing when deploying recipes."""
+    stdout = call_subprocess_run(cmd)
+    lastline = json.loads(stdout.splitlines()[-1])
+    job_id = lastline["job_id"]
+    job_name = lastline["job_name"]
+    print(f"Job submitted with {job_id = } and {job_name = }")
 
 
 def main():
@@ -92,7 +89,9 @@ def main():
     # working directory is the root of the feedstock repo, so we can list feedstock repo
     # contents directly on the filesystem here, without requesting it from github.
     if "requirements.txt" in os.listdir(feedstock_subdir):
-        pip_install(f"{feedstock_subdir}/requirements.txt", conda_env)
+        call_subprocess_run(
+            f"mamba run -n {conda_env} pip install -Ur {feedstock_subdir}/requirements.txt".split()
+        )
 
     with tempfile.NamedTemporaryFile("w", suffix=".json") as f:
         json.dump(config, f)
