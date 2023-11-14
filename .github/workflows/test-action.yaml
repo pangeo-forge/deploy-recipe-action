@@ -12,8 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-    matrix:
-      recipes-version: ["0.10.3"]  # , "latest", "main"]
+      matrix:
+        recipes-version: ["0.10.3"]  # , "latest", "main"]
     steps:
       - name: "Clone test feedstock"
         run: |
