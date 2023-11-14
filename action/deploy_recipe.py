@@ -79,10 +79,10 @@ def main():
     # if calling `pangeo-forge-runner` directly, `--feedstock-subdir` can be passed as a CLI arg.
     # in the action context, users do not compose their own `pangeo-forge-runner` CLI calls, so if
     # they want to use a non-default value for feedstock-subdir, it must be passed via the long-form
-    # name in the config JSON (i.e, `{"BaseCommand": "feedstock-subdir": ...}}`).
+    # name in the config JSON (i.e, `{"BaseCommand": "feedstock_subdir": ...}}`).
     feedstock_subdir = (
-        config["BaseCommand"]["feedstock-subdir"]
-        if "BaseCommand" in config and "feedstock-subdir" in config["BaseCommand"]
+        config["BaseCommand"]["feedstock_subdir"]
+        if "BaseCommand" in config and "feedstock_subdir" in config["BaseCommand"]
         else "feedstock"
     )
     # because we've run the actions/checkout step before reaching this point, our current
