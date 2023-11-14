@@ -18,24 +18,27 @@ jobs:
       - name: "Clone test feedstock"
         run: |
           git clone "git+https://github.com/pangeo-forge/pangeo-forge-recipes.git@{{ matrix.recipes-version}}"
-      - name: "Deploy recipes"
-        uses: "pangeo-forge/deploy-recipe-action@${{ github.head_ref }}"
-        with:
-          # select_recipe_by_label: true
-          pangeo_forge_runner_config: >
-            {
-            "BaseCommand": {
-              "feedstock_subdir": "pangeo-forge-recipes/examples/feedstock"
-            },
-            "Bake": {
-              "bakery_class": "pangeo_forge_runner.bakery.local.LocalDirectBakery"
-            },
-            "TargetStorage": {
-              "fsspec_class": "fsspec.implementations.local.LocalFileSystem",
-              "root_path": "./target"
-            },
-            "InputCacheStorage": {
-              "fsspec_class": "fsspec.implementations.local.LocalFileSystem",
-              "root_path": "./cache"
-            }
-            }
+      - name: echo
+        run: |
+          echo ${{ github.head_ref }}
+      # - name: "Deploy recipes"
+      #   uses: "pangeo-forge/deploy-recipe-action@${{ github.head_ref }}"
+      #   with:
+      #     # select_recipe_by_label: true
+      #     pangeo_forge_runner_config: >
+      #       {
+      #       "BaseCommand": {
+      #         "feedstock_subdir": "pangeo-forge-recipes/examples/feedstock"
+      #       },
+      #       "Bake": {
+      #         "bakery_class": "pangeo_forge_runner.bakery.local.LocalDirectBakery"
+      #       },
+      #       "TargetStorage": {
+      #         "fsspec_class": "fsspec.implementations.local.LocalFileSystem",
+      #         "root_path": "./target"
+      #       },
+      #       "InputCacheStorage": {
+      #         "fsspec_class": "fsspec.implementations.local.LocalFileSystem",
+      #         "root_path": "./cache"
+      #       }
+      #       }
