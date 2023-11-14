@@ -26,6 +26,11 @@ jobs:
         # in the container at action runtime.
         run: |
           echo "pangeo-forge-recipes==${{ matrix.recipes-version }}" > pangeo-forge-recipes/examples/feedstock/requirements.txt
+      - name: "Overwrite meta.yaml"
+        # The example feedstock contains multiple recipes, but we just want to test gpcp
+        run: |
+          grep -E 'recipes|gpcp' pangeo-forge-recipes/examples/feedstock/meta.yaml > temp.yaml \
+          && mv temp.yaml pangeo-forge-recipes/examples/feedstock/meta.yaml
       - name: "Deploy recipes"
         uses: ./
         with:
