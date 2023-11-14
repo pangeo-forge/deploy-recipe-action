@@ -18,7 +18,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: "Clone test feedstock"
         run: |
-          git clone "https://github.com/pangeo-forge/pangeo-forge-recipes.git@{{ matrix.recipes-version}}"
+          git clone "https://github.com/pangeo-forge/pangeo-forge-recipes.git@${{ matrix.recipes-version }}"
       - name: "Deploy recipes"
         uses: ./
         with:
