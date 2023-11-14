@@ -17,8 +17,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: "Clone test feedstock"
+        # Fetches test feedstock (containing example test recipes) from pangeo-forge-recipes
         run: |
           git clone --depth 1 --branch ${{ matrix.recipes-version }} https://github.com/pangeo-forge/pangeo-forge-recipes.git
+      - name: "Add requirements.txt"
+        # The clone step above gives us recipe modules and meta.yaml, but does not contain a requirements file,
+        # so we add that here, providing the action with the correct version of pangeo-forge-recipes to install
+        # in the container at action runtime.
+        run: |
+          echo "pangeo-forge-recipes==${{ matrix.recipes-version }}" > pangeo-forge-recipes/examples/feedstock/requirements.txt
       - name: "Deploy recipes"
         uses: ./
         with:
