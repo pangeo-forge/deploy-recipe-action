@@ -41,6 +41,7 @@ jobs:
               "feedstock_subdir": "pangeo-forge-recipes/examples/feedstock"
             },
             "Bake": {
+              "prune": true,
               "bakery_class": "pangeo_forge_runner.bakery.local.LocalDirectBakery"
             },
             "TargetStorage": {
