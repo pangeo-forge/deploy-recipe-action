@@ -55,8 +55,8 @@ class MockCompletedProcess:
     returncode: int
 
 
-@pytest.fixture
-def subprocess_run_side_effect():
+@pytest.fixture(params=[True, False], ids=["has_job_id", "no_job_id"])
+def subprocess_run_side_effect(request):
     def _get_mock_completed_proc(cmd: list[str], *args, **kwargs):
         # `subprocess.run` is called a few ways, so use a side effect function
         # to vary the output depending on what arguments it was called with.
@@ -68,8 +68,11 @@ def subprocess_run_side_effect():
                 returncode=returncode,
             )
         elif "bake" in " ".join(cmd):
+            # not all bakery types have a job_id, represent that here
+            has_job_id = request.param
+            stdout = b'{"job_id": "foo", "job_name": "bar"}' if has_job_id else b'{}'
             return MockCompletedProcess(
-                stdout=b'{"job_id": "foo", "job_name": "bar"}',
+                stdout=stdout,
                 stderr=b"",
                 returncode=0,
             )
