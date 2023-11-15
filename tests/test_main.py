@@ -155,7 +155,7 @@ def test_main(
                     else "feedstock"
                 )
                 expected_cmd = (
-                    f"python3 pip install -Ur {feedstock_subdir}/requirements.txt"
+                    f"python3 -m pip install -Ur {feedstock_subdir}/requirements.txt"
                 ).split()
                 subprocess_run.assert_any_call(expected_cmd, capture_output=True)
             else:

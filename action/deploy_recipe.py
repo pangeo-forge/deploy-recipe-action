@@ -86,7 +86,7 @@ def main():
     # contents directly on the filesystem here, without requesting it from github.
     if "requirements.txt" in os.listdir(feedstock_subdir):
         call_subprocess_run(
-            f"python3 pip install -Ur {feedstock_subdir}/requirements.txt".split()
+            f"python3 -m pip install -Ur {feedstock_subdir}/requirements.txt".split()
         )
 
     with tempfile.NamedTemporaryFile("w", suffix=".json") as f:
