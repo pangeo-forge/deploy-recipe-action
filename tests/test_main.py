@@ -133,7 +133,7 @@ def test_main(
 
     if pip_install_raises:
         config: dict = json.loads(env["INPUT_PANGEO_FORGE_RUNNER_CONFIG"])
-        config.update({"BaseCommand": {"feedstock-subdir": "broken-requirements-feedstock"}})
+        config.update({"BaseCommand": {"feedstock_subdir": "broken-requirements-feedstock"}})
         env["INPUT_PANGEO_FORGE_RUNNER_CONFIG"] = json.dumps(config)
 
     with patch.dict(os.environ, env):
