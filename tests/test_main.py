@@ -27,7 +27,6 @@ def select_recipe_by_label(request):
 @pytest.fixture
 def env(select_recipe_by_label, head_ref):
     return {
-        "CONDA_ENV": "notebook",
         "GITHUB_REPOSITORY": "my/repo",
         "GITHUB_API_URL": "https://api.github.com",
         # fixturing of `head_ref` reflects that on `push`
@@ -56,8 +55,8 @@ class MockCompletedProcess:
     returncode: int
 
 
-@pytest.fixture
-def subprocess_run_side_effect():
+@pytest.fixture(params=[True, False], ids=["has_job_id", "no_job_id"])
+def subprocess_run_side_effect(request):
     def _get_mock_completed_proc(cmd: list[str], *args, **kwargs):
         # `subprocess.run` is called a few ways, so use a side effect function
         # to vary the output depending on what arguments it was called with.
@@ -69,8 +68,11 @@ def subprocess_run_side_effect():
                 returncode=returncode,
             )
         elif "bake" in " ".join(cmd):
+            # not all bakery types have a job_id, represent that here
+            has_job_id = request.param
+            stdout = b'{"job_id": "foo", "job_name": "bar"}' if has_job_id else b'{}'
             return MockCompletedProcess(
-                stdout=b'{"job_id": "foo", "job_name": "bar"}',
+                stdout=stdout,
                 stderr=b"",
                 returncode=0,
             )
@@ -134,7 +136,7 @@ def test_main(
 
     if pip_install_raises:
         config: dict = json.loads(env["INPUT_PANGEO_FORGE_RUNNER_CONFIG"])
-        config.update({"BaseCommand": {"feedstock-subdir": "broken-requirements-feedstock"}})
+        config.update({"BaseCommand": {"feedstock_subdir": "broken-requirements-feedstock"}})
         env["INPUT_PANGEO_FORGE_RUNNER_CONFIG"] = json.dumps(config)
 
     with patch.dict(os.environ, env):
@@ -156,8 +158,7 @@ def test_main(
                     else "feedstock"
                 )
                 expected_cmd = (
-                    f"mamba run -n {env['CONDA_ENV']} "
-                    f"pip install -Ur {feedstock_subdir}/requirements.txt"
+                    f"python3 -m pip install -Ur {feedstock_subdir}/requirements.txt"
                 ).split()
                 subprocess_run.assert_any_call(expected_cmd, capture_output=True)
             else:
