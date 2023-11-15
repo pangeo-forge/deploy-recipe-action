@@ -27,7 +27,6 @@ def select_recipe_by_label(request):
 @pytest.fixture
 def env(select_recipe_by_label, head_ref):
     return {
-        "CONDA_ENV": "notebook",
         "GITHUB_REPOSITORY": "my/repo",
         "GITHUB_API_URL": "https://api.github.com",
         # fixturing of `head_ref` reflects that on `push`
@@ -156,8 +155,7 @@ def test_main(
                     else "feedstock"
                 )
                 expected_cmd = (
-                    f"mamba run -n {env['CONDA_ENV']} "
-                    f"pip install -Ur {feedstock_subdir}/requirements.txt"
+                    f"python3 pip install -Ur {feedstock_subdir}/requirements.txt"
                 ).split()
                 subprocess_run.assert_any_call(expected_cmd, capture_output=True)
             else:

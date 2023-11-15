@@ -33,9 +33,6 @@ def deploy_recipe_cmd(cmd: list[str]):
 
 
 def main():
-    # set in Dockerfile
-    conda_env = os.environ["CONDA_ENV"]
-
     # injected by github actions
     repository = os.environ["GITHUB_REPOSITORY"]  # will this fail for external prs?
     api_url = os.environ["GITHUB_API_URL"]
@@ -50,7 +47,6 @@ def main():
     select_recipe_by_label = os.environ["INPUT_SELECT_RECIPE_BY_LABEL"]
 
     # log variables to stdout
-    print(f"{conda_env = }")
     print(f"{head_ref = }")
     print(f"{sha = }")
     print(f"{config = }")
@@ -90,7 +86,7 @@ def main():
     # contents directly on the filesystem here, without requesting it from github.
     if "requirements.txt" in os.listdir(feedstock_subdir):
         call_subprocess_run(
-            f"mamba run -n {conda_env} pip install -Ur {feedstock_subdir}/requirements.txt".split()
+            f"python3 pip install -Ur {feedstock_subdir}/requirements.txt".split()
         )
 
     with tempfile.NamedTemporaryFile("w", suffix=".json") as f:
