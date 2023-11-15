@@ -27,9 +27,16 @@ def deploy_recipe_cmd(cmd: list[str]):
     """Wrapper for `call_subprocess_run` with extra stdout parsing when deploying recipes."""
     stdout = call_subprocess_run(cmd)
     lastline = json.loads(stdout.splitlines()[-1])
-    job_id = lastline["job_id"]
-    job_name = lastline["job_name"]
-    print(f"Job submitted with {job_id = } and {job_name = }")
+    if all([k in lastline for k in ("job_id", "job_name")]):
+        job_id = lastline["job_id"]
+        job_name = lastline["job_name"]
+        print(f"Job submitted with {job_id = } and {job_name = }")
+    else:
+        print(
+            "Keys 'job_id' and/or 'job_name' missing from deploy recipe process stdout, "
+            "but deploy command did not fail. Perhaps the configured bakery type does not "
+            "provide this logging information?"
+        )
 
 
 def main():
