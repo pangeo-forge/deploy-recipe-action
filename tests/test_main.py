@@ -24,10 +24,24 @@ def select_recipe_by_label(request):
     return request.param
 
 
+@pytest.fixture(params=["inline", "file", "broken_inline", "broken_file"])
+def pangeo_forge_runner_config(request, tmp_path_factory: pytest.TempPathFactory):
+    if "inline" in request.param:
+        return "{}" if not "broken" in request.param else "{broken: json}"
+    elif "file" in request.param:
+        if not "broken" in request.param:
+            tmp_config_dir = tmp_path_factory.mktemp("config")
+            outpath = tmp_config_dir / "config.json"
+            with open(tmp_config_dir / "config.json", mode="w") as f:
+                json.dump({}, f)
+            return outpath.absolute().as_posix()
+        else:
+            return "non/existent/path.json"
+
+
 @pytest.fixture
-def env(select_recipe_by_label, head_ref):
+def env(select_recipe_by_label, head_ref, pangeo_forge_runner_config):
     return {
-        "CONDA_ENV": "notebook",
         "GITHUB_REPOSITORY": "my/repo",
         "GITHUB_API_URL": "https://api.github.com",
         # fixturing of `head_ref` reflects that on `push`
@@ -37,7 +51,7 @@ def env(select_recipe_by_label, head_ref):
         "GITHUB_REPOSITORY_ID": "1234567890",
         "GITHUB_RUN_ID": "0987654321",
         "GITHUB_RUN_ATTEMPT": "1",
-        "INPUT_PANGEO_FORGE_RUNNER_CONFIG": '{}',
+        "INPUT_PANGEO_FORGE_RUNNER_CONFIG": pangeo_forge_runner_config,
         "INPUT_SELECT_RECIPE_BY_LABEL": select_recipe_by_label,
     }
 
@@ -56,8 +70,8 @@ class MockCompletedProcess:
     returncode: int
 
 
-@pytest.fixture
-def subprocess_run_side_effect():
+@pytest.fixture(params=[True, False], ids=["has_job_id", "no_job_id"])
+def subprocess_run_side_effect(request):
     def _get_mock_completed_proc(cmd: list[str], *args, **kwargs):
         # `subprocess.run` is called a few ways, so use a side effect function
         # to vary the output depending on what arguments it was called with.
@@ -69,8 +83,11 @@ def subprocess_run_side_effect():
                 returncode=returncode,
             )
         elif "bake" in " ".join(cmd):
+            # not all bakery types have a job_id, represent that here
+            has_job_id = request.param
+            stdout = b'{"job_id": "foo", "job_name": "bar"}' if has_job_id else b'{}'
             return MockCompletedProcess(
-                stdout=b'{"job_id": "foo", "job_name": "bar"}',
+                stdout=stdout,
                 stderr=b"",
                 returncode=0,
             )
@@ -97,6 +114,14 @@ def listdir_return_value_with_pip_install_raises(request):
 @pytest.fixture
 def mock_tempfile_name():
     return "mock-temp-file.json"
+
+
+def get_config_asdict(config: str) -> dict:
+    """Config could be a JSON file path or JSON string, either way load it to dict."""
+    if os.path.exists(config):
+        with open(config) as f:
+            return json.load(f)
+    return json.loads(config)
 
 
 @patch("deploy_recipe.os.listdir")
@@ -132,32 +157,53 @@ def test_main(
     listdir_return_value, pip_install_raises = listdir_return_value_with_pip_install_raises
     listdir.return_value = listdir_return_value
 
-    if pip_install_raises:
-        config: dict = json.loads(env["INPUT_PANGEO_FORGE_RUNNER_CONFIG"])
-        config.update({"BaseCommand": {"feedstock-subdir": "broken-requirements-feedstock"}})
-        env["INPUT_PANGEO_FORGE_RUNNER_CONFIG"] = json.dumps(config)
+    config_is_broken = (
+        env["INPUT_PANGEO_FORGE_RUNNER_CONFIG"] == "{broken: json}"
+        or env["INPUT_PANGEO_FORGE_RUNNER_CONFIG"] == "non/existent/path.json"
+    )
+
+    if pip_install_raises and not config_is_broken:
+        update_with = {"BaseCommand": {"feedstock_subdir": "broken-requirements-feedstock"}}
+        config = get_config_asdict(env["INPUT_PANGEO_FORGE_RUNNER_CONFIG"])
+        config.update(update_with)
+
+        if os.path.exists(env["INPUT_PANGEO_FORGE_RUNNER_CONFIG"]):
+            with open(env["INPUT_PANGEO_FORGE_RUNNER_CONFIG"], "w") as f:
+                json.dump(config, f)
+        else:
+            env["INPUT_PANGEO_FORGE_RUNNER_CONFIG"] = json.dumps(config)
 
     with patch.dict(os.environ, env):
-        if "broken-requirements-feedstock" in env["INPUT_PANGEO_FORGE_RUNNER_CONFIG"]:
+        if (
+            not config_is_broken
+            and "broken-requirements-feedstock" in str(
+                get_config_asdict(env["INPUT_PANGEO_FORGE_RUNNER_CONFIG"])
+            )
+        ):
             with pytest.raises(ValueError):
                 main()
             # if pip install fails, we should bail early & never invoke `bake`. re: `call_args_list`:
             # https://docs.python.org/3/library/unittest.mock.html#unittest.mock.Mock.call_args_list
             for call in [args[0][0] for args in subprocess_run.call_args_list]:
                 assert "bake" not in call
+        elif env["INPUT_PANGEO_FORGE_RUNNER_CONFIG"] == "{broken: json}":
+            with pytest.raises(ValueError):
+                main()
+        elif env["INPUT_PANGEO_FORGE_RUNNER_CONFIG"] == "non/existent/path.json":
+            with pytest.raises(ValueError):
+                main()
         else:
             main()
 
             if any([path.endswith("requirements.txt") for path in listdir_return_value]):
-                config = json.loads(env["INPUT_PANGEO_FORGE_RUNNER_CONFIG"])
+                config = get_config_asdict(env["INPUT_PANGEO_FORGE_RUNNER_CONFIG"])
                 feedstock_subdir = (
                     config["BaseCommand"]["feedstock-subdir"]
                     if "BaseCommand" in config
                     else "feedstock"
                 )
                 expected_cmd = (
-                    f"mamba run -n {env['CONDA_ENV']} "
-                    f"pip install -Ur {feedstock_subdir}/requirements.txt"
+                    f"python3 -m pip install -Ur {feedstock_subdir}/requirements.txt"
                 ).split()
                 subprocess_run.assert_any_call(expected_cmd, capture_output=True)
             else:

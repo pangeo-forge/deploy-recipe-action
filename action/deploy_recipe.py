@@ -27,15 +27,19 @@ def deploy_recipe_cmd(cmd: list[str]):
     """Wrapper for `call_subprocess_run` with extra stdout parsing when deploying recipes."""
     stdout = call_subprocess_run(cmd)
     lastline = json.loads(stdout.splitlines()[-1])
-    job_id = lastline["job_id"]
-    job_name = lastline["job_name"]
-    print(f"Job submitted with {job_id = } and {job_name = }")
+    if all([k in lastline for k in ("job_id", "job_name")]):
+        job_id = lastline["job_id"]
+        job_name = lastline["job_name"]
+        print(f"Job submitted with {job_id = } and {job_name = }")
+    else:
+        print(
+            "Keys 'job_id' and/or 'job_name' missing from deploy recipe process stdout, "
+            "but deploy command did not fail. Perhaps the configured bakery type does not "
+            "provide this logging information?"
+        )
 
 
 def main():
-    # set in Dockerfile
-    conda_env = os.environ["CONDA_ENV"]
-
     # injected by github actions
     repository = os.environ["GITHUB_REPOSITORY"]  # will this fail for external prs?
     api_url = os.environ["GITHUB_API_URL"]
@@ -51,27 +55,26 @@ def main():
 
     # parse config
     print(f"pangeo-forge-runner-config provided as {config_string}")
-    if os.path.exists(config_string):
-        # we allow local paths pointing to json files
-        print(f"Loading json from file '{config_string}'...")
-        with open(config_string) as f:
-            config = json.load(f)
-    else:
-        # or json strings passed inline in the workflow yaml
-        print(f"{config_string} does not exist as a file. Loading json from string...")
-        try:
+    try:
+        if os.path.exists(config_string):
+            # we allow local paths pointing to json files
+            print(f"Loading json from file '{config_string}'...")
+            with open(config_string) as f:
+                config = json.load(f)
+        else:
+            # or json strings passed inline in the workflow yaml
+            print(f"{config_string} does not exist as a file. Loading json from string...")
             config = json.loads(config_string)
-        except json.JSONDecodeError as e:
-            raise ValueError(
-                f"{config_string} failed to parse to JSON. If you meant to pass a JSON string, "
-                "please confirm that it is correctly formatted. If you meant to pass a filename, "
-                "please confirm this path exists. Note, pangeo-forge/deploy-recipe-action should "
-                "always be invoked after actions/checkout, therefore the provided path must be "
-                "given relative to the repo root."
-            ) from e
+    except json.JSONDecodeError as e:
+        raise ValueError(
+            f"{config_string} failed to parse to JSON. If you meant to pass a JSON string, "
+            "please confirm that it is correctly formatted. If you meant to pass a filename, "
+            "please confirm this path exists. Note, pangeo-forge/deploy-recipe-action should "
+            "always be invoked after actions/checkout, therefore the provided path must be "
+            "given relative to the repo root."
+        ) from e
 
     # log variables to stdout
-    print(f"{conda_env = }")
     print(f"{head_ref = }")
     print(f"{sha = }")
     print(f"{config = }")
@@ -100,10 +103,10 @@ def main():
     # if calling `pangeo-forge-runner` directly, `--feedstock-subdir` can be passed as a CLI arg.
     # in the action context, users do not compose their own `pangeo-forge-runner` CLI calls, so if
     # they want to use a non-default value for feedstock-subdir, it must be passed via the long-form
-    # name in the config JSON (i.e, `{"BaseCommand": "feedstock-subdir": ...}}`).
+    # name in the config JSON (i.e, `{"BaseCommand": "feedstock_subdir": ...}}`).
     feedstock_subdir = (
-        config["BaseCommand"]["feedstock-subdir"]
-        if "BaseCommand" in config and "feedstock-subdir" in config["BaseCommand"]
+        config["BaseCommand"]["feedstock_subdir"]
+        if "BaseCommand" in config and "feedstock_subdir" in config["BaseCommand"]
         else "feedstock"
     )
     # because we've run the actions/checkout step before reaching this point, our current
@@ -111,7 +114,7 @@ def main():
     # contents directly on the filesystem here, without requesting it from github.
     if "requirements.txt" in os.listdir(feedstock_subdir):
         call_subprocess_run(
-            f"mamba run -n {conda_env} pip install -Ur {feedstock_subdir}/requirements.txt".split()
+            f"python3 -m pip install -Ur {feedstock_subdir}/requirements.txt".split()
         )
 
     with tempfile.NamedTemporaryFile("w", suffix=".json") as f:

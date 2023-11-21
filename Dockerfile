@@ -1,10 +1,9 @@
-FROM quay.io/pangeo/forge:5e51a29
+FROM ubuntu:22.04
 
-RUN conda run -n notebook pip install git+https://github.com/jbusecke/pangeo-forge-runner@dev
+RUN apt-get update && apt-get install -y python3 python3-pip
+RUN python3 -m pip install pangeo-forge-runner
 
 COPY action/deploy_recipe.py /deploy_recipe.py
 COPY entrypoint.sh /entrypoint.sh
-
-ENV CONDA_ENV=notebook
 
 ENTRYPOINT [ "sh", "/entrypoint.sh" ]
