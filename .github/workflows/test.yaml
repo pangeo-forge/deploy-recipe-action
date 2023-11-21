@@ -13,7 +13,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9.13"]  # consistent with Dockerfile
+        # the dockerfile will only run on the latest version of python3 as installed
+        # by apt-get, but these tests are very cheap so just keep an eye out for any
+        # potential issues as that version floats upward
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
 
     steps:
     - uses: actions/checkout@v3
