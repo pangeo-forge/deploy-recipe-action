@@ -55,24 +55,24 @@ def main():
 
     # parse config
     print(f"pangeo-forge-runner-config provided as {config_string}")
-    if os.path.exists(config_string):
-        # we allow local paths pointing to json files
-        print(f"Loading json from file '{config_string}'...")
-        with open(config_string) as f:
-            config = json.load(f)
-    else:
-        # or json strings passed inline in the workflow yaml
-        print(f"{config_string} does not exist as a file. Loading json from string...")
-        try:
+    try:
+        if os.path.exists(config_string):
+            # we allow local paths pointing to json files
+            print(f"Loading json from file '{config_string}'...")
+            with open(config_string) as f:
+                config = json.load(f)
+        else:
+            # or json strings passed inline in the workflow yaml
+            print(f"{config_string} does not exist as a file. Loading json from string...")
             config = json.loads(config_string)
-        except json.JSONDecodeError as e:
-            raise ValueError(
-                f"{config_string} failed to parse to JSON. If you meant to pass a JSON string, "
-                "please confirm that it is correctly formatted. If you meant to pass a filename, "
-                "please confirm this path exists. Note, pangeo-forge/deploy-recipe-action should "
-                "always be invoked after actions/checkout, therefore the provided path must be "
-                "given relative to the repo root."
-            ) from e
+    except json.JSONDecodeError as e:
+        raise ValueError(
+            f"{config_string} failed to parse to JSON. If you meant to pass a JSON string, "
+            "please confirm that it is correctly formatted. If you meant to pass a filename, "
+            "please confirm this path exists. Note, pangeo-forge/deploy-recipe-action should "
+            "always be invoked after actions/checkout, therefore the provided path must be "
+            "given relative to the repo root."
+        ) from e
 
     # log variables to stdout
     print(f"{head_ref = }")
