@@ -10,6 +10,7 @@ on:
 jobs:
   runs-on: ubuntu-latest
   setup:
+    - uses: actions/checkout@v4
     - name: "Clone test feedstock"
       # Fetches test feedstock (containing example test recipes) from pangeo-forge-recipes
       run: |
