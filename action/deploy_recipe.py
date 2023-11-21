@@ -128,25 +128,21 @@ def main():
             f"-f={f.name}",
         ]
         print("\nSubmitting job...")
-        print(f"{recipe_ids = }")
+        job_name_base = (
+            f"{repository_id}-{run_id}-{run_attempt}"
+        )
         if select_recipe_by_label:
+            print(f"{recipe_ids = }")
             for rid in recipe_ids:
                 if len(rid) > 44:
                     print(f"Recipe id {rid} is > 44 chars, truncating to 44 chars.")
-                job_name = (
-                    f"{rid.lower().replace('_', '-')[:44]}-{repository_id}-{run_id}-{run_attempt}"
-                )
+                job_name = f"{rid.lower().replace('_', '-')[:44]}-{job_name_base}"
                 print(f"Submitting {job_name = }")
                 extra_cmd = [f"--Bake.recipe_id={rid}", f"--Bake.job_name={job_name}"]
                 deploy_recipe_cmd(cmd + extra_cmd)
         else:
-            # FIXME: pangeo-forge-runner handles job_name generation if we deploy everything
-            # currently, there is a pangeo-forge-runne bug that prevents creation of unique
-            # job_names when everything is deployed. apart from fixing that bug, we'd like the
-            # ability to provide our own job names, even if we deploy everything. this might mean
-            # passing a `--Bake.job_name_append` option to pangeo-forge-runner, which is a user-
-            # defined string to append to the job names.
-            deploy_recipe_cmd(cmd)
+            extra_cmd = [f"--Bake.job_name=a{job_name_base}"]
+            deploy_recipe_cmd(cmd + extra_cmd)
 
 
 if __name__ == "__main__":
