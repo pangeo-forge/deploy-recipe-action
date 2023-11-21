@@ -1,0 +1,99 @@
+name: Test action
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: [ "*" ]
+
+jobs:
+  test:
+    name: (recipes@${{ matrix.recipes-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        recipes-version: [
+          # "main",
+          # "0.10.3",
+          "0.10.4",
+        ]
+        config: [
+          "inline",
+          "file",
+        ]
+    steps:
+      - uses: actions/checkout@v4
+
+      # ----- Shared setup --------------------------------------------------------------
+      - name: "Clone test feedstock"
+        # Fetches test feedstock (containing example test recipes) from pangeo-forge-recipes
+        run: |
+          git clone --depth 1 --branch ${{ matrix.recipes-version }} https://github.com/pangeo-forge/pangeo-forge-recipes.git
+      - name: "Add requirements.txt"
+        # The clone step above gives us recipe modules and meta.yaml, but does not contain a requirements file,
+        # so we add that here, providing the action with the correct version of pangeo-forge-recipes to install
+        # in the container at action runtime.
+        run: |
+          echo "pangeo-forge-recipes==${{ matric.recipes-version }}" > pangeo-forge-recipes/examples/feedstock/requirements.txt
+      - name: "Overwrite meta.yaml"
+        # The example feedstock contains multiple recipes, but we just want to test gpcp
+        run: |
+          grep -E 'recipes|gpcp' pangeo-forge-recipes/examples/feedstock/meta.yaml > temp.yaml \
+          && mv temp.yaml pangeo-forge-recipes/examples/feedstock/meta.yaml
+      
+      # ----- File based config ---------------------------------------------------------
+      - name: Write local-config.json
+        if: matrix.config == 'file'
+        run: |
+          cat << EOF > ./local-config.json
+          {
+          "BaseCommand": {
+            "feedstock_subdir": "pangeo-forge-recipes/examples/feedstock"
+          },
+          "Bake": {
+            "prune": true,
+            "bakery_class": "pangeo_forge_runner.bakery.local.LocalDirectBakery"
+          },
+          "TargetStorage": {
+            "fsspec_class": "fsspec.implementations.local.LocalFileSystem",
+            "root_path": "./target"
+          },
+          "InputCacheStorage": {
+            "fsspec_class": "fsspec.implementations.local.LocalFileSystem",
+            "root_path": "./cache"
+          }
+          }
+          EOF
+      - name: "Deploy recipes"
+        if: matrix.config == 'file'
+        uses: ./
+        with:
+          # select_recipe_by_label: true
+          pangeo_forge_runner_config: ./local-config.json
+
+
+      # ---- Inline config --------------------------------------------------------------
+      - name: "Deploy recipes"
+        if: matrix.config == 'inline'
+        uses: ./
+        with:
+          # select_recipe_by_label: true
+          pangeo_forge_runner_config: >
+            {
+            "BaseCommand": {
+              "feedstock_subdir": "pangeo-forge-recipes/examples/feedstock"
+            },
+            "Bake": {
+              "prune": true,
+              "bakery_class": "pangeo_forge_runner.bakery.local.LocalDirectBakery"
+            },
+            "TargetStorage": {
+              "fsspec_class": "fsspec.implementations.local.LocalFileSystem",
+              "root_path": "./target"
+            },
+            "InputCacheStorage": {
+              "fsspec_class": "fsspec.implementations.local.LocalFileSystem",
+              "root_path": "./cache"
+            }
+            }
