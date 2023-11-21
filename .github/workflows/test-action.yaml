@@ -35,7 +35,7 @@ jobs:
         # so we add that here, providing the action with the correct version of pangeo-forge-recipes to install
         # in the container at action runtime.
         run: |
-          echo "pangeo-forge-recipes==${{ matric.recipes-version }}" > pangeo-forge-recipes/examples/feedstock/requirements.txt
+          echo "pangeo-forge-recipes==${{ matrix.recipes-version }}" > pangeo-forge-recipes/examples/feedstock/requirements.txt
       - name: "Overwrite meta.yaml"
         # The example feedstock contains multiple recipes, but we just want to test gpcp
         run: |
