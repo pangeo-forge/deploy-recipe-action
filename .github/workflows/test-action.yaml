@@ -8,7 +8,7 @@ on:
 
 jobs:
   test:
-    name: (recipes@${{ matrix.recipes-version }})
+    name: (recipes@${{ matrix.recipes-version }}, config=${{ matrix.config }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
