@@ -40,7 +40,7 @@ jobs:
       - name: 'Prune docker (for testing pull time)'  # TODO: remove
         run: |
           docker rmi -f $(docker images -aq)
-          docker system prune
+          docker system prune -f
 
       - name: 'Pull Image (as test)'  # TODO: remove
         run: |
