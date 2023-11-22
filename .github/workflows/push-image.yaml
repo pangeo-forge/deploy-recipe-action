@@ -37,7 +37,12 @@ jobs:
           docker build . --tag ghcr.io/${{ env.ORG }}/deploy-recipe-action:${{ env.TAG }}
           docker push ghcr.io/${{ env.ORG }}/deploy-recipe-action:${{ env.TAG }}
 
+      - name: 'Prune docker (for testing pull time)'  # TODO: remove
+        run: |
+          docker rm -vf $(docker ps -a -q)
+          docker rmi -f $(docker images -aq)
+          docker system prune
+
       - name: 'Pull Image (as test)'  # TODO: remove
         run: |
-          docker rmi -f $(docker images -aq)
           docker pull ghcr.io/${{ env.ORG }}/deploy-recipe-action:${{ env.TAG }}
