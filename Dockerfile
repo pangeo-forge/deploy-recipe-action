@@ -1,4 +1,7 @@
 FROM ubuntu:22.04
+# label image to make it public, see:
+# https://dev.to/willvelida/pushing-container-images-to-github-container-registry-with-github-actions-1m6b
+LABEL org.opencontainers.image.source="https://github.com/pangeo-forge/deploy-recipe-action"
 
 # git is to support pip install from `git+https://` sources
 RUN apt-get update && apt-get install -y python3 python3-pip git
