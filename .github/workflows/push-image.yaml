@@ -36,4 +36,5 @@ jobs:
 
       - name: 'Pull Image (as test)'  # TODO: remove
         run: |
+          docker rmi ghcr.io/${{ env.ORG }}/deploy-recipe-action:${{ env.TAG }}
           docker pull ghcr.io/${{ env.ORG }}/deploy-recipe-action:${{ env.TAG }}
