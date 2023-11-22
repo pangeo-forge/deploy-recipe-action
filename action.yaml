@@ -15,6 +15,4 @@ inputs:
     required: true
 runs:
   using: 'docker'
-  image: 'Dockerfile'
-  args:
-    - ${{ inputs.pangeo_forge_runner_config }}
+  image: 'ghcr.io/pangeo-forge/deploy-recipe-action:test'
