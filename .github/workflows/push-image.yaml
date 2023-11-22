@@ -1,3 +1,6 @@
+# Adapted from:
+# https://dev.to/willvelida/pushing-container-images-to-github-container-registry-with-github-actions-1m6b
+
 name: Deploy Images to GHCR
 
 env:
@@ -36,5 +39,5 @@ jobs:
 
       - name: 'Pull Image (as test)'  # TODO: remove
         run: |
-          docker rmi ghcr.io/${{ env.ORG }}/deploy-recipe-action:${{ env.TAG }}
+          docker rmi -f $(docker images -aq)
           docker pull ghcr.io/${{ env.ORG }}/deploy-recipe-action:${{ env.TAG }}
