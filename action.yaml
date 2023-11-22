@@ -15,4 +15,4 @@ inputs:
     required: true
 runs:
   using: 'docker'
-  image: 'Dockerfile'
+  image: 'ghcr.io/pangeo-forge/deploy-recipe-action:test'
