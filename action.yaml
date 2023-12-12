@@ -13,6 +13,9 @@ inputs:
   pangeo_forge_runner_config:
     description: 'JSON configuration for Pangeo Forge Runner CLI.'
     required: true
+  auto_detect_feedstock_folders:
+    description: 'If passed as `True`, automatically detect feedstock folders in the repository.'
+    required: false
 runs:
   using: 'docker'
   image: 'Dockerfile'
