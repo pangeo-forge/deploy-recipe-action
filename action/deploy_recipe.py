@@ -52,6 +52,15 @@ def main():
     # user input
     config_string = os.environ["INPUT_PANGEO_FORGE_RUNNER_CONFIG"]
     select_recipe_by_label = os.environ["INPUT_SELECT_RECIPE_BY_LABEL"]
+    autodetect_feedstock_folder = os.environ["INPUT_AUTODETECT_FEEDSTOCK_FOLDER"]
+
+    cwd = os.getcwd()
+
+    if autodetect_feedstock_folder:
+        # find all folders that have a `meta.yaml` file in them
+        feedstock_subdirs = [f for f,_,files in os.walk(cwd) if 'meta.yaml' in files]
+    else:
+        feedstock_subdirs = os.path.join(cwd, "feedstock")
 
     # parse config
     print(f"pangeo-forge-runner-config provided as {config_string}")
@@ -79,70 +88,74 @@ def main():
     print(f"{sha = }")
     print(f"{config = }")
 
-    labels = []
-    if select_recipe_by_label:
-        # `head_ref` is available for `pull_request` events. on a `push` event, the `head_ref`
-        # environment variable will be empty, so in that case we use `sha` to find the PR instead.
-        commit_sha = head_ref if head_ref else sha
-        # querying the following endpoint should give us the PR containing the desired labels,
-        # regardless of whether this is a `pull_request` or `push` event. see official docs here:
-        # https://docs.github.com/en/rest/commits/commits?apiVersion=2022-11-28#list-pull-requests-associated-with-a-commit
-        pulls_url = "/".join([api_url, "repos", repository, "commits", commit_sha, "pulls"])
-        headers = {"X-GitHub-Api-Version": "2022-11-28", "Accept": "application/vnd.github+json"}
-        
-        print(f"Fetching pulls from {pulls_url}")
-        pulls_response = requests.get(pulls_url, headers=headers)
-        pulls_response.raise_for_status()
-        pulls = pulls_response.json()
-        assert len(pulls) == 1  # pretty sure this is always true, but just making sure
-        labels: list[str] = [label["name"] for label in pulls[0]["labels"]]
+    for feedstock_subdir in feedstock_subdirs:
+        print(f"{feedstock_subdir =}")
 
-    recipe_ids = [l.replace("run:", "") for l in labels if l.startswith("run:")]
-
-    # dynamically install extra deps if requested.
-    # if calling `pangeo-forge-runner` directly, `--feedstock-subdir` can be passed as a CLI arg.
-    # in the action context, users do not compose their own `pangeo-forge-runner` CLI calls, so if
-    # they want to use a non-default value for feedstock-subdir, it must be passed via the long-form
-    # name in the config JSON (i.e, `{"BaseCommand": "feedstock_subdir": ...}}`).
-    feedstock_subdir = (
-        config["BaseCommand"]["feedstock_subdir"]
-        if "BaseCommand" in config and "feedstock_subdir" in config["BaseCommand"]
-        else "feedstock"
-    )
-    # because we've run the actions/checkout step before reaching this point, our current
-    # working directory is the root of the feedstock repo, so we can list feedstock repo
-    # contents directly on the filesystem here, without requesting it from github.
-    if "requirements.txt" in os.listdir(feedstock_subdir):
-        call_subprocess_run(
-            f"python3 -m pip install -Ur {feedstock_subdir}/requirements.txt".split()
-        )
-
-    with tempfile.NamedTemporaryFile("w", suffix=".json") as f:
-        json.dump(config, f)
-        f.flush()
-        cmd = [
-            "pangeo-forge-runner",
-            "bake",
-            "--repo=.",
-            "--json",
-            f"-f={f.name}",
-        ]
-        print("\nSubmitting job...")
-        job_name_base = (
-            f"{repository_id}-{run_id}-{run_attempt}"
-        )
+        labels = []
         if select_recipe_by_label:
-            print(f"{recipe_ids = }")
-            for rid in recipe_ids:
-                if len(rid) > 44:
-                    print(f"Recipe id {rid} is > 44 chars, truncating to 44 chars.")
-                job_name = f"{rid.lower().replace('_', '-')[:44]}-{job_name_base}"
-                print(f"Submitting {job_name = }")
-                extra_cmd = [f"--Bake.recipe_id={rid}", f"--Bake.job_name={job_name}"]
+            # `head_ref` is available for `pull_request` events. on a `push` event, the `head_ref`
+            # environment variable will be empty, so in that case we use `sha` to find the PR instead.
+            commit_sha = head_ref if head_ref else sha
+            # querying the following endpoint should give us the PR containing the desired labels,
+            # regardless of whether this is a `pull_request` or `push` event. see official docs here:
+            # https://docs.github.com/en/rest/commits/commits?apiVersion=2022-11-28#list-pull-requests-associated-with-a-commit
+            pulls_url = "/".join([api_url, "repos", repository, "commits", commit_sha, "pulls"])
+            headers = {"X-GitHub-Api-Version": "2022-11-28", "Accept": "application/vnd.github+json"}
+            
+            print(f"Fetching pulls from {pulls_url}")
+            pulls_response = requests.get(pulls_url, headers=headers)
+            pulls_response.raise_for_status()
+            pulls = pulls_response.json()
+            assert len(pulls) == 1  # pretty sure this is always true, but just making sure
+            labels: list[str] = [label["name"] for label in pulls[0]["labels"]]
+
+        recipe_ids = [l.replace("run:", "") for l in labels if l.startswith("run:")]
+
+        # dynamically install extra deps if requested.
+        # if calling `pangeo-forge-runner` directly, `--feedstock-subdir` can be passed as a CLI arg.
+        # in the action context, users do not compose their own `pangeo-forge-runner` CLI calls, so if
+        # they want to use a non-default value for feedstock-subdir, it must be passed via the long-form
+        # name in the config JSON (i.e, `{"BaseCommand": "feedstock_subdir": ...}}`).
+        feedstock_subdir = (
+            config["BaseCommand"]["feedstock_subdir"]
+            if "BaseCommand" in config and "feedstock_subdir" in config["BaseCommand"]
+            else "feedstock"
+        )
+        # because we've run the actions/checkout step before reaching this point, our current
+        # working directory is the root of the feedstock repo, so we can list feedstock repo
+        # contents directly on the filesystem here, without requesting it from github.
+        if "requirements.txt" in os.listdir(feedstock_subdir):
+            call_subprocess_run(
+                f"python3 -m pip install -Ur {feedstock_subdir}/requirements.txt".split()
+            )
+
+        with tempfile.NamedTemporaryFile("w", suffix=".json") as f:
+            json.dump(config, f)
+            f.flush()
+            cmd = [
+                "pangeo-forge-runner",
+                "bake",
+                f"--feedstock-subdir={feedstock_subdir}",
+                "--repo=.",
+                "--json",
+                f"-f={f.name}",
+            ]
+            print("\nSubmitting job...")
+            job_name_base = (
+                f"{repository_id}-{run_id}-{run_attempt}"
+            )
+            if select_recipe_by_label:
+                print(f"{recipe_ids = }")
+                for rid in recipe_ids:
+                    if len(rid) > 44:
+                        print(f"Recipe id {rid} is > 44 chars, truncating to 44 chars.")
+                    job_name = f"{rid.lower().replace('_', '-')[:44]}-{job_name_base}"
+                    print(f"Submitting {job_name = }")
+                    extra_cmd = [f"--Bake.recipe_id={rid}", f"--Bake.job_name={job_name}"]
+                    deploy_recipe_cmd(cmd + extra_cmd)
+            else:
+                extra_cmd = [f"--Bake.job_name=a{job_name_base}"]
                 deploy_recipe_cmd(cmd + extra_cmd)
-        else:
-            extra_cmd = [f"--Bake.job_name=a{job_name_base}"]
-            deploy_recipe_cmd(cmd + extra_cmd)
 
 
 if __name__ == "__main__":
