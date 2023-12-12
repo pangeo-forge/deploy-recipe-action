@@ -61,6 +61,11 @@ def main():
     if autodetect_feedstock_folder:
         # find all folders that have a `meta.yaml` file in them
         feedstock_subdirs = [f for f,_,files in os.walk(cwd) if 'meta.yaml' in files]
+        if len(feedstock_subdirs) == 0:
+            raise ValueError(
+                "No feedstock subdirectories found. Please confirm that at least one directory "
+                "in the repo contains a `meta.yaml` file."
+            )
     else:
         feedstock_subdirs = os.path.join(cwd, "feedstock")
     print(f"{feedstock_subdirs = }")
