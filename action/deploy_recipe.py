@@ -63,8 +63,8 @@ def main():
         feedstock_subdirs = [f for f,_,files in os.walk(cwd) if 'meta.yaml' in files]
         if len(feedstock_subdirs) == 0:
             raise ValueError(
-                "No feedstock subdirectories found. Please confirm that at least one directory "
-                "in the repo contains a `meta.yaml` file."
+                "No feedstock subdirectories found. Please confirm that at least "
+                "one subdirectory in the repo contains a `meta.yaml` file."
             )
     else:
         feedstock_subdirs = os.path.join(cwd, "feedstock")
@@ -119,16 +119,16 @@ def main():
 
         recipe_ids = [l.replace("run:", "") for l in labels if l.startswith("run:")]
 
-        # dynamically install extra deps if requested.
-        # if calling `pangeo-forge-runner` directly, `--feedstock-subdir` can be passed as a CLI arg.
-        # in the action context, users do not compose their own `pangeo-forge-runner` CLI calls, so if
-        # they want to use a non-default value for feedstock-subdir, it must be passed via the long-form
-        # name in the config JSON (i.e, `{"BaseCommand": "feedstock_subdir": ...}}`).
-        feedstock_subdir = (
-            config["BaseCommand"]["feedstock_subdir"]
-            if "BaseCommand" in config and "feedstock_subdir" in config["BaseCommand"]
-            else "feedstock"
-        )
+        # # dynamically install extra deps if requested.
+        # # if calling `pangeo-forge-runner` directly, `--feedstock-subdir` can be passed as a CLI arg.
+        # # in the action context, users do not compose their own `pangeo-forge-runner` CLI calls, so if
+        # # they want to use a non-default value for feedstock-subdir, it must be passed via the long-form
+        # # name in the config JSON (i.e, `{"BaseCommand": "feedstock_subdir": ...}}`).
+        # feedstock_subdir = (
+        #     config["BaseCommand"]["feedstock_subdir"]
+        #     if "BaseCommand" in config and "feedstock_subdir" in config["BaseCommand"]
+        #     else "feedstock"
+        # )
         # because we've run the actions/checkout step before reaching this point, our current
         # working directory is the root of the feedstock repo, so we can list feedstock repo
         # contents directly on the filesystem here, without requesting it from github.
