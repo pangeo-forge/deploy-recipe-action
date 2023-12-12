@@ -53,6 +53,8 @@ def main():
     config_string = os.environ["INPUT_PANGEO_FORGE_RUNNER_CONFIG"]
     select_recipe_by_label = os.environ["INPUT_SELECT_RECIPE_BY_LABEL"]
     autodetect_feedstock_folder = os.environ["INPUT_AUTODETECT_FEEDSTOCK_FOLDERS"]
+    print(f"{select_recipe_by_label = }")
+    print(f"{autodetect_feedstock_folder = }")
 
     cwd = os.getcwd()
 
@@ -61,6 +63,7 @@ def main():
         feedstock_subdirs = [f for f,_,files in os.walk(cwd) if 'meta.yaml' in files]
     else:
         feedstock_subdirs = os.path.join(cwd, "feedstock")
+    print(f"{feedstock_subdirs = }")
 
     # parse config
     print(f"pangeo-forge-runner-config provided as {config_string}")
