@@ -52,7 +52,7 @@ def main():
     # user input
     config_string = os.environ["INPUT_PANGEO_FORGE_RUNNER_CONFIG"]
     select_recipe_by_label = os.environ["INPUT_SELECT_RECIPE_BY_LABEL"]
-    autodetect_feedstock_folder = os.environ["INPUT_AUTODETECT_FEEDSTOCK_FOLDER"]
+    autodetect_feedstock_folder = os.environ["INPUT_AUTODETECT_FEEDSTOCK_FOLDERS"]
 
     cwd = os.getcwd()
 
