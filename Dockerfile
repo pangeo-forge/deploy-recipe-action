@@ -1,7 +1,7 @@
 FROM ubuntu:22.04
 
 # git is to support pip install from `git+https://` sources
-RUN apt-get update && apt-get install -y python3 python3-pip git
+RUN apt-get update && apt-get install -y python3 python3-pip python3-venv git
 RUN python3 -m pip install --upgrade pip
 RUN python3 -m pip install "pangeo-forge-runner[dataflow,flink]>=0.9.2"
 
