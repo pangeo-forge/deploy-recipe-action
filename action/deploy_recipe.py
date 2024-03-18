@@ -109,13 +109,6 @@ def main():
         if "BaseCommand" in config and "feedstock_subdir" in config["BaseCommand"]
         else "feedstock"
     )
-    # because we've run the actions/checkout step before reaching this point, our current
-    # working directory is the root of the feedstock repo, so we can list feedstock repo
-    # contents directly on the filesystem here, without requesting it from github.
-    if "requirements.txt" in os.listdir(feedstock_subdir):
-        call_subprocess_run(
-            f"python3 -m pip install -Ur {feedstock_subdir}/requirements.txt".split()
-        )
 
     with tempfile.NamedTemporaryFile("w", suffix=".json") as f:
         json.dump(config, f)
