@@ -67,7 +67,7 @@ def main():
                 "one subdirectory in the repo contains a `meta.yaml` file."
             )
     else:
-        feedstock_subdirs = os.path.join(cwd, "feedstock")
+        feedstock_subdirs = [os.path.join(cwd, "feedstock")]
     print(f"{feedstock_subdirs = }")
 
     # parse config
