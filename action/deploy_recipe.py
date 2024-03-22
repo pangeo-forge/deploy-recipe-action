@@ -96,6 +96,7 @@ def main():
         pulls = pulls_response.json()
         assert len(pulls) == 1  # pretty sure this is always true, but just making sure
         labels: list[str] = [label["name"] for label in pulls[0]["labels"]]
+        print(f"Found {labels=}")
 
     recipe_ids = [l.replace("run:", "") for l in labels if l.startswith("run:")]
 
